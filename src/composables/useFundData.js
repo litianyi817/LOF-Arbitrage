@@ -109,6 +109,9 @@ async function fetchMarketJSONPAll() {
       const data = await jsonpRequest(`${base}?${params.toString()}`, 12000)
       const items = data?.data?.diff || []
       console.log('[JSONP]', fs, ':', items.length, '条')
+      const sampleSuspended = items.filter(it => parseFloat(it.f5) === 0).length
+      const sampleQDII = items.filter(it => /QDII|纳斯达克|标普|恒生|港股|全球|海外|美元|港股通|中概|互联|德国|法国|日本|印度|越南|韩国|台湾/i.test(it.f14||'')).length
+      console.log('[JSONP] 停牌:', sampleSuspended, '| QDII:', sampleQDII)
 
       for (const it of items) {
         const iopv = parseFloat(it.f21) || parseFloat(it.f22) || parseFloat(it.f20) || 0
@@ -123,7 +126,7 @@ async function fetchMarketJSONPAll() {
           estimatedNav: iopv,
           estimatedTime: iopv > 0 ? '实时' : '',
           navSource: iopv > 0 ? 'eastmoney_iopv' : null,
-          isSuspended: volume === 0 && parseFloat(it.f2) > 0,
+          isSuspended: it.f5 !== undefined && it.f5 !== '' && volume === 0 && parseFloat(it.f2) > 0,
           isQDII: /QDII|纳斯达克|标普|恒生|港股|全球|海外|美元|港股通|中概|互联|德国|法国|日本|印度|越南|韩国|台湾/i.test(name)
         })
       }
