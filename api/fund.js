@@ -6,6 +6,12 @@
  * 去掉 ut token 依赖，部分API版本不需要
  */
 
+import { proxyFetch } from '../lib/proxy-fetch.js'
+
+// 替换全局 fetch 为代理版本
+const _rawFetch = globalThis.fetch
+globalThis.fetch = async (...args) => proxyFetch(...args)
+
 const API_BASE = 'https://push2.eastmoney.com/api/qt/clist/get'
 
 // LOF市场代码
