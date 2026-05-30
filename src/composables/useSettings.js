@@ -32,6 +32,14 @@ export const DATA_SOURCES = {
       color: '#2ecc71',
       apiParam: 'tencent',
       desc: 'qt.gtimg.cn — 实时行情（备选）'
+    },
+    {
+      id: 'alphavantage',
+      name: 'Alpha Vantage',
+      icon: '📈',
+      color: '#9b59b6',
+      apiParam: 'alphavantage',
+      desc: '全球API — 需输入API Key，支持沪深市场 (.SHZ/.SHH)'
     }
   ],
   nav: [
@@ -69,7 +77,8 @@ const DEFAULTS = {
   navSource: 'tiantian',
   refreshInterval: 30_000,
   customMarketUrl: '',
-  customNavUrl: ''
+  customNavUrl: '',
+  alphaVantageKey: ''
 }
 
 function loadSettings() {
@@ -123,7 +132,8 @@ export function useSettings() {
       marketSource: settings.marketSource === 'custom' ? 'custom' : settings.marketSource,
       navSource: settings.navSource === 'custom' ? 'custom' : settings.navSource,
       customMarketUrl: settings.customMarketUrl,
-      customNavUrl: settings.customNavUrl
+      customNavUrl: settings.customNavUrl,
+      alphaVantageKey: settings.alphaVantageKey
     }
   }
 

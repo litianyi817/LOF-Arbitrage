@@ -203,6 +203,7 @@ const SOURCE_LABELS = {
   tiantian:      { icon: '🏦', name: '天天', color: '#e67e22' },
   eastmoney_nav: { icon: '📡', name: '东财净值', color: '#4dabf7' },
   cache:         { icon: '💾', name: '缓存', color: '#8892b0' },
+  alphavantage:  { icon: '📈', name: 'Alpha', color: '#9b59b6' },
   unknown:       { icon: '❓', name: '未知', color: '#8892b0' }
 }
 

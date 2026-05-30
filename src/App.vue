@@ -119,13 +119,15 @@ const { settings, getApiParams } = useSettings()
 
 function doRefreshWithSettings() {
   const apiParams = getApiParams()
-  // 不传 codes → API 返回全市场数据
-  return fetchData(null, true, {
+  // Alpha Vantage 需要 codes，其他源不需要
+  const codes = apiParams.marketSource === 'alphavantage' ? getWatchCodes() : null
+  return fetchData(codes, true, {
     marketSource: apiParams.marketSource,
     navSource: apiParams.navSource,
     customMarketUrl: apiParams.customMarketUrl,
     customNavUrl: apiParams.customNavUrl,
-    cacheDuration: settings.refreshInterval
+    cacheDuration: settings.refreshInterval,
+    alphaVantageKey: apiParams.alphaVantageKey
   })
 }
 
@@ -161,7 +163,8 @@ async function handleSearchCode(code) {
     navSource: getApiParams().navSource,
     customMarketUrl: getApiParams().customMarketUrl,
     customNavUrl: getApiParams().customNavUrl,
-    cacheDuration: settings.refreshInterval
+    cacheDuration: settings.refreshInterval,
+    alphaVantageKey: getApiParams().alphaVantageKey
   })
   // 查完后更新关注列表中的名称
   const fund = funds.value?.find(f => f.code === code)

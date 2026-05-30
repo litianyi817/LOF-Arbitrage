@@ -13,7 +13,18 @@ let currentCacheDuration = 30_000
 /**
  * 获取场内实时行情
  */
-async function fetchMarketPrices(codes, source, customUrl) {
+async function fetchMarketPrices(codes, source, customUrl, avKey) {
+  // Alpha Vantage 走独立端点
+  if (source === 'alphavantage' && codes && codes.length > 0) {
+    const key = avKey || 'demo'
+    const url = `/api/alphavantage?codes=${codes.join(',')}&apikey=${key}`
+    const resp = await fetch(url)
+    if (!resp.ok) throw new Error(`Alpha Vantage: HTTP ${resp.status}`)
+    const json = await resp.json()
+    if (!json.success) throw new Error(json.error || 'Alpha Vantage 请求失败')
+    return { data: json.data, source: 'alphavantage' }
+  }
+
   let url = '/api/fund'
   if (codes && codes.length > 0) url += `?codes=${codes.join(',')}`
   else url += '?all=true'
@@ -133,7 +144,8 @@ export function useFundData() {
       navSource = 'tiantian',
       customMarketUrl = '',
       customNavUrl = '',
-      cacheDuration = 30_000
+      cacheDuration = 30_000,
+      alphaVantageKey = ''
     } = options
 
     currentCacheDuration = cacheDuration
@@ -162,7 +174,7 @@ export function useFundData() {
       // === 步骤1：获取行情 ===
       let prices = [], marketSrc = marketSource
       try {
-        const result = await fetchMarketPrices(codes, marketSource, customMarketUrl)
+        const result = await fetchMarketPrices(codes, marketSource, customMarketUrl, alphaVantageKey)
         prices = result.data
         marketSrc = result.source || marketSource
       } catch (err) {

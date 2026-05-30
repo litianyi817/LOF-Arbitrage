@@ -58,6 +58,22 @@
               </div>
             </section>
 
+            <!-- ===== Alpha Vantage API Key ===== -->
+            <section v-if="settings.marketSource === 'alphavantage'">
+              <h4 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <span>🔑</span> Alpha Vantage API Key
+              </h4>
+              <input
+                v-model="settings.alphaVantageKey"
+                type="text"
+                placeholder="输入你的 API Key..."
+                class="w-full bg-bg border border-white/10 rounded-lg px-4 py-3 text-sm font-mono-num placeholder:text-muted/40 focus:border-accent focus:outline-none transition-colors"
+              />
+              <p class="text-xs text-muted mt-2">
+                免费获取: <a href="https://www.alphavantage.co/support/#api-key" target="_blank" class="text-accent underline">alphavantage.co</a> — 免费25次/天
+              </p>
+            </section>
+
             <!-- ===== 净值数据源 ===== -->
             <section>
               <h4 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
