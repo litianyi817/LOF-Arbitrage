@@ -61,25 +61,14 @@ async function fetchEstimatedNavs(codes, source, customUrl) {
 /**
  * 浏览器直连东方财富 JSONP 获取行情
  */
-function fetchMarketJSONP(codes) {
+function jsonpRequest(url, timeout = 10000) {
   return new Promise((resolve, reject) => {
-    const cbName = '_em_cb_' + Date.now()
-    const secids = codes.map(c => {
-      if (c.startsWith('16') || c.startsWith('15')) return `0.${c}`
-      if (c.startsWith('50') || c.startsWith('51')) return `1.${c}`
-      return `0.${c}`
-    }).join(',')
-
-    const params = new URLSearchParams()
-    params.set('pn','1'); params.set('pz', String(codes.length + 5))
-    params.set('po','1'); params.set('np','1'); params.set('fltt','2')
-    params.set('invt','2'); params.set('fid','f3')
-    params.set('secids', secids)
-    params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18')
-    params.set('cb', cbName)
+    const cbName = '_em_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)
+    const sep = url.includes('?') ? '&' : '?'
+    const fullUrl = `${url}${sep}cb=${cbName}`
 
     const script = document.createElement('script')
-    const timer = setTimeout(() => { cleanup(); reject(new Error('行情JSONP超时')) }, 8000)
+    const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP超时')) }, timeout)
 
     function cleanup() {
       clearTimeout(timer)
@@ -87,23 +76,82 @@ function fetchMarketJSONP(codes) {
       if (script.parentNode) script.parentNode.removeChild(script)
     }
 
-    window[cbName] = (data) => {
-      cleanup()
-      const items = data?.data?.diff
-      if (!items?.length) { reject(new Error('行情数据为空')); return }
-      resolve(items.map(it => ({
+    window[cbName] = (data) => { cleanup(); resolve(data) }
+    script.onerror = () => { cleanup(); reject(new Error('JSONP加载失败')) }
+    script.src = fullUrl
+    document.head.appendChild(script)
+  })
+}
+
+/**
+ * 浏览器直连东方财富 JSONP——全市场模式（fs过滤）
+ * 一次请求拿所有深市+沪市 LOF/ETF
+ */
+async function fetchMarketJSONPAll() {
+  const base = 'https://push2.eastmoney.com/api/qt/clist/get'
+  const allFunds = []
+
+  // 深市 LOF/ETF
+  const mkts = ['b:MK0021', 'b:MK0022']
+  for (const fs of mkts) {
+    try {
+      const params = new URLSearchParams()
+      params.set('pn','1'); params.set('pz','500'); params.set('po','1')
+      params.set('np','1'); params.set('fltt','2'); params.set('invt','2')
+      params.set('fid','f3'); params.set('fs', fs)
+      params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18')
+
+      const data = await jsonpRequest(`${base}?${params.toString()}`, 12000)
+      const items = data?.data?.diff || []
+      console.log('[JSONP]', fs, ':', items.length, '条')
+
+      for (const it of items) {
+        allFunds.push({
+          code: it.f12||'', name: it.f14||'',
+          price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
+          change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
+          low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
+          prevClose: parseFloat(it.f18)||0
+        })
+      }
+    } catch (e) {
+      console.warn('[JSONP]', fs, '失败:', e.message)
+    }
+  }
+
+  if (!allFunds.length) throw new Error('全市场JSONP无数据')
+  return allFunds
+}
+
+/**
+ * 浏览器直连东方财富 JSONP——指定代码模式
+ */
+function fetchMarketJSONP(codes) {
+  const secids = codes.map(c => {
+    if (c.startsWith('16') || c.startsWith('15')) return `0.${c}`
+    if (c.startsWith('50') || c.startsWith('51')) return `1.${c}`
+    return `0.${c}`
+  }).join(',')
+
+  const params = new URLSearchParams()
+  params.set('pn','1'); params.set('pz', String(codes.length + 5))
+  params.set('po','1'); params.set('np','1'); params.set('fltt','2')
+  params.set('invt','2'); params.set('fid','f3')
+  params.set('secids', secids)
+  params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18')
+
+  return jsonpRequest(`https://push2.eastmoney.com/api/qt/clist/get?${params.toString()}`, 10000)
+    .then(data => {
+      const items = data?.data?.diff || []
+      if (!items.length) throw new Error('行情数据为空')
+      return items.map(it => ({
         code: it.f12||'', name: it.f14||'',
         price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
         change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
         low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
         prevClose: parseFloat(it.f18)||0
-      })))
-    }
-
-    script.onerror = () => { cleanup(); reject(new Error('行情JSONP加载失败')) }
-    script.src = `https://push2.eastmoney.com/api/qt/clist/get?${params.toString()}`
-    document.head.appendChild(script)
-  })
+      }))
+    })
 }
 
 /**
@@ -295,22 +343,28 @@ export function useFundData() {
       } catch (err) {
         console.warn('[useFundData] Vercel行情API失败:', err.message)
         // 备用：浏览器直连东方财富 JSONP
-        const mktCodes = codes && codes.length > 0 ? codes : null
-        if (mktCodes && mktCodes.length > 0) {
+        if (codes && codes.length > 0) {
+          // 有指定代码 → 精确查询
           try {
-            console.log('[useFundData] 尝试浏览器直连行情 JSONP...')
-            prices = await fetchMarketJSONP(mktCodes.slice(0, 20))
+            console.log('[useFundData] 浏览器直连行情 JSONP...', codes.length, '个')
+            prices = await fetchMarketJSONP(codes.slice(0, 30))
             marketSrc = 'eastmoney_direct'
           } catch (e2) {
-            console.warn('[useFundData] 行情JSONP也失败:', e2.message)
-            error.value = err.message
-            loading.value = false
-            fetchPromise = null
-            if (cachedFunds) { funds.value = cachedFunds; return cachedFunds }
-            funds.value = []
-            return []
+            console.warn('[useFundData] 行情JSONP失败:', e2.message)
           }
         } else {
+          // 全市场模式 → 用 fs 过滤拿全部
+          try {
+            console.log('[useFundData] 浏览器全市场行情 JSONP...')
+            prices = await fetchMarketJSONPAll()
+            marketSrc = 'eastmoney_direct'
+          } catch (e2) {
+            console.warn('[useFundData] 全市场JSONP失败:', e2.message)
+          }
+        }
+
+        // 如果 JSONP 也失败，报错
+        if (prices.length === 0) {
           error.value = err.message
           loading.value = false
           fetchPromise = null

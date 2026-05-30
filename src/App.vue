@@ -119,9 +119,8 @@ const { settings, getApiParams } = useSettings()
 
 function doRefreshWithSettings() {
   const apiParams = getApiParams()
-  // 始终传关注列表代码，Vercel 失败时 JSONP 备用
-  const codes = getWatchCodes()
-  return fetchData(codes.length > 0 ? codes : null, true, {
+  // null = 全市场模式 → Vercel失败时JSONP用fs过滤拿全部
+  return fetchData(null, true, {
     marketSource: apiParams.marketSource,
     navSource: apiParams.navSource,
     customMarketUrl: apiParams.customMarketUrl,
