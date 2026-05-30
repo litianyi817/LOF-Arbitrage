@@ -23,8 +23,11 @@ async function fetchMarketPrices(codes, source, customUrl) {
   if (!response.ok) throw new Error(`行情API: HTTP ${response.status}`)
   const json = await response.json()
   if (!json.success) throw new Error(json.error || '行情数据获取失败')
-  if (!json.data || json.data.length === 0) throw new Error('行情数据为空')
-  return { data: json.data, source: json.source || source || 'eastmoney' }
+  if (!json.data || json.data.length === 0) {
+    const warning = json.warning || '行情数据为空'
+    throw new Error(warning)
+  }
+  return { data: json.data, source: json.source || source || 'eastmoney', warning: json.warning || null }
 }
 
 /**

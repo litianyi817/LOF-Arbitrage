@@ -20,12 +20,8 @@
       ></span>
     </div>
 
-    <!-- 中间：版本号 + 倒计时 + 最后更新 -->
+    <!-- 中间：倒计时 + 最后更新 -->
     <div class="flex items-center gap-3">
-      <!-- 版本号 -->
-      <span class="text-2xs text-muted/50 bg-white/5 px-1.5 py-0.5 rounded font-mono-num select-all" title="部署版本">
-        v{{ APP_VERSION }}
-      </span>
       <span v-if="lastUpdate" class="text-muted text-xs hidden sm:inline font-mono-num">
         {{ formatTime(lastUpdate) }}
       </span>
@@ -37,8 +33,13 @@
       </span>
     </div>
 
-    <!-- 右侧：操作按钮 -->
+    <!-- 右侧：版本号 + 操作按钮 -->
     <div class="flex items-center gap-2">
+      <!-- 版本号 -->
+      <span class="text-xs text-accent font-mono-num font-semibold px-2 py-1 rounded bg-accent/15 ring-1 ring-accent/25 select-all cursor-default" :title="'构建版本: ' + APP_VERSION">
+        v{{ APP_VERSION }}
+      </span>
+
       <button
         @click="$emit('toggle-auto')"
         class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"

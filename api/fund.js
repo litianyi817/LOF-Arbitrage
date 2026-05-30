@@ -6,12 +6,6 @@
  * 去掉 ut token 依赖，部分API版本不需要
  */
 
-import { proxyFetch } from '../lib/proxy-fetch.js'
-
-// 替换全局 fetch 为代理版本
-const _rawFetch = globalThis.fetch
-globalThis.fetch = async (...args) => proxyFetch(...args)
-
 const API_BASE = 'https://push2.eastmoney.com/api/qt/clist/get'
 
 // LOF市场代码
@@ -211,6 +205,28 @@ export default async function handler(req, res) {
       } catch (e) {
         console.error('[fund] 兜底也失败:', e.message)
       }
+    }
+
+    // 终极兜底：API 完全不可达时返回静态示例数据（至少界面不空白）
+    if (allFunds.length === 0) {
+      console.log('[fund] 所有API不可达，返回静态占位数据')
+      allFunds = FALLBACK_CODES.slice(0, 10).map(code => ({
+        code,
+        name: '数据加载中...',
+        price: 0,
+        changePct: 0,
+        change: 0,
+        high: 0, low: 0, open: 0, prevClose: 0
+      }))
+      res.status(200).json({
+        success: true,
+        total: allFunds.length,
+        data: allFunds,
+        source: 'fallback',
+        warning: '数据源暂时不可达，显示占位数据。请检查网络或刷新重试。',
+        time: new Date().toISOString()
+      })
+      return
     }
 
     // 去重

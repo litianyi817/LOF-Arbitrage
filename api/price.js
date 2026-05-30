@@ -7,11 +7,6 @@
  * v1.1: 减小批大小和超时，适配Vercel 10s限制
  */
 
-import { proxyFetch } from '../lib/proxy-fetch.js'
-
-// 替换全局 fetch 为代理版本
-globalThis.fetch = async (...args) => proxyFetch(...args)
-
 const FUND_API_BASE = 'https://fundgz.1234567.com.cn/js'
 const EASTMONEY_NAV_API = 'https://api.fund.eastmoney.com/f10/lsjz'
 
