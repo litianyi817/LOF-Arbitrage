@@ -8,9 +8,26 @@
  */
 
 const FUND_API_BASE = 'https://fundgz.1234567.com.cn/js'
+const EASTMONEY_NAV_API = 'https://api.fund.eastmoney.com/f10/lsjz'
 
-// 单个基金净值查询（超时3秒）
+// 单个基金净值查询（天天基金主源，东方财富备用）
 async function fetchFundNav(code) {
+  // === 方案1：天天基金（实时估算净值） ===
+  try {
+    const result = await tryTiantianFund(code)
+    if (result && !result.error) return result
+  } catch { /* fall through */ }
+
+  // === 方案2：东方财富基金净值（上一交易日确认值） ===
+  try {
+    const result = await tryEastmoneyNav(code)
+    if (result && !result.error) return result
+  } catch { /* fall through */ }
+
+  return { code, error: '所有净值源均失败' }
+}
+
+async function tryTiantianFund(code) {
   const url = `${FUND_API_BASE}/${code}.js`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 3000)
@@ -25,39 +42,82 @@ async function fetchFundNav(code) {
     })
     clearTimeout(timeout)
 
-    if (!response.ok) {
-      return { code, error: `HTTP ${response.status}` }
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const text = await response.text()
 
-    // 天天基金返回 JSONP 格式: jsonpgz({...});
     const jsonMatch = text.match(/jsonpgz\((\{[\s\S]*?\})\)/i)
-    if (!jsonMatch) {
-      return { code, error: '无法解析净值数据' }
-    }
+    if (!jsonMatch) throw new Error('非JSONP')
 
     const raw = JSON.parse(jsonMatch[1])
-
-    // gsz=估算净值, dwjz=单位净值, gztime=估算时间
     const estimatedNav = parseFloat(raw.gsz) || 0
     const nav = parseFloat(raw.dwjz) || 0
 
     return {
       code: raw.fundcode || code,
       name: raw.name || '',
-      nav,                                          // 单位净值（上一交易日确认值）
-      estimatedNav,                                 // 估算净值（盘中实时，休市时为0）
+      nav,
+      estimatedNav,
       estimatedTime: raw.gztime || '',
       estimatedPct: parseFloat(raw.gszzl) || 0,
       navDate: raw.jzrq || '',
       navAcc: parseFloat(raw.ljjz) || 0,
-      // 休市时 gsz=0，此时用 dwjz 作为显示净值
-      displayNav: estimatedNav > 0 ? estimatedNav : nav
+      displayNav: estimatedNav > 0 ? estimatedNav : nav,
+      source: 'tiantian'
     }
-  } catch (err) {
+  } finally {
     clearTimeout(timeout)
-    return { code, error: err.message }
+  }
+}
+
+async function tryEastmoneyNav(code) {
+  const url = `${EASTMONEY_NAV_API}?callback=&fundCode=${code}&pageIndex=1&pageSize=1`
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://fund.eastmoney.com/'
+      }
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const text = await response.text()
+
+    // 去JSONP包装
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch {
+      const m = text.match(/^\s*\w*\((.+)\)\s*;?\s*$/s)
+      if (m) data = JSON.parse(m[1])
+      else throw new Error('非JSON')
+    }
+
+    const records = data?.Data?.LSJZList || []
+    if (records.length === 0) throw new Error('无净值记录')
+
+    const latest = records[0]
+    const nav = parseFloat(latest.DWJZ) || 0
+    const accNav = parseFloat(latest.LJJZ) || 0
+
+    return {
+      code,
+      name: '',
+      nav,
+      estimatedNav: 0,     // 东方财富接口不提供实时估算
+      estimatedTime: '',
+      estimatedPct: 0,
+      navDate: latest.FSRQ || '',
+      navAcc: accNav,
+      displayNav: nav,     // 直接用确认净值
+      source: 'eastmoney_nav'
+    }
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
