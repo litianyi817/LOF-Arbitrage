@@ -109,6 +109,7 @@ async function fetchMarketJSONPAll() {
       const data = await jsonpRequest(`${base}?${params.toString()}`, 12000)
       const items = data?.data?.diff || []
       console.log('[JSONP]', fs, ':', items.length, '条')
+      if (items[0]) console.log('[JSONP] 首条字段:', Object.keys(items[0]).join(','), '| f21=', items[0].f21, '| f20=', items[0].f20)
 
       for (const it of items) {
         const iopv = parseFloat(it.f21) || parseFloat(it.f22) || parseFloat(it.f20) || 0
@@ -215,11 +216,13 @@ function fetchNavJSONP(code) {
  */
 async function fetchNavsDirectJSONP(codes) {
   const results = []
-  for (let i = 0; i < codes.length; i += 10) {
-    const batch = codes.slice(i, i + 10)
-    const settled = await Promise.allSettled(batch.map(fetchNavJSONP))
-    for (const r of settled) {
-      results.push(r.status === 'fulfilled' ? r.value : { code: 'unknown', error: r.reason?.message || '失败' })
+  // 天天基金 JSONP 只能串行（全局回调 jsonpgz 不可重入）
+  for (const code of codes) {
+    try {
+      const r = await fetchNavJSONP(code)
+      results.push(r)
+    } catch (e) {
+      results.push({ code, error: e.message })
     }
   }
   return { data: results, source: 'tiantian_direct' }
@@ -392,14 +395,21 @@ export function useFundData() {
       } catch (err) {
         console.warn('[useFundData] Vercel净值API失败:', err.message)
         // 备用：浏览器直连天天基金 JSONP
+        // 检查行情数据里是否已有 IOPV
+        const hasIOPV = prices.some(p => p.estimatedNav > 0)
         const jsonpCodes = codes && codes.length > 0 ? codes : prices.map(p => p.code).filter(Boolean)
-        if (jsonpCodes.length > 0) {
+
+        if (!hasIOPV && jsonpCodes.length > 0) {
           try {
-            console.log('[useFundData] JSONP净值批量获取...', jsonpCodes.length, '个（并发10）')
-            // 全部获取，并发10个
-            const direct = await fetchNavsDirectJSONP(jsonpCodes)
+            // 串行只取前30只（天天基金JSONP不可并发）
+            const batch = jsonpCodes.slice(0, 30)
+            console.log('[useFundData] JSONP净值串行获取...', batch.length, '个')
+            const direct = await fetchNavsDirectJSONP(batch)
             navs = direct.data
             navSrc = 'tiantian_direct'
+            if (jsonpCodes.length > 30) {
+              navError.value = `净值已获取前30只（共${jsonpCodes.length}只，其余按价格排序后加载）`
+            }
           } catch (e2) {
             console.warn('[useFundData] JSONP净值失败:', e2.message)
             navError.value = '净值数据暂不可用'
