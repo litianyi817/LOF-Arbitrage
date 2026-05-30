@@ -164,27 +164,26 @@ function fetchMarketJSONP(codes) {
     })
 }
 
-/**
- * 浏览器直连天天基金 JSONP 获取净值（Vercel 不可用时的备用方案）
- * 天天基金返回格式: jsonpgz({"fundcode":"...","gsz":"...",...})
- */
+// 全局 jsonpgz 调度器（天天基金 JSONP 固定调用此函数）
+window._navCallbacks = window._navCallbacks || {}
+window.jsonpgz = function(raw) {
+  const cb = window._navCallbacks._current
+  if (cb) { window._navCallbacks._current = null; cb(raw) }
+}
+
 function fetchNavJSONP(code) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script')
     const timer = setTimeout(() => {
-      cleanup()
-      reject(new Error('JSONP超时'))
-    }, 5000)
-
-    function cleanup() {
-      clearTimeout(timer)
-      delete window.jsonpgz
+      window._navCallbacks._current = null
       if (script.parentNode) script.parentNode.removeChild(script)
-    }
+      reject(new Error('JSONP超时'))
+    }, 6000)
 
-    // 天天基金 API 固定调用 jsonpgz()
-    window.jsonpgz = (raw) => {
-      cleanup()
+    window._navCallbacks._current = (raw) => {
+      clearTimeout(timer)
+      if (script.parentNode) script.parentNode.removeChild(script)
+      if (!raw) { reject(new Error('响应为空')); return }
       const gsz = parseFloat(raw.gsz) || 0
       const dwjz = parseFloat(raw.dwjz) || 0
       resolve({
@@ -202,7 +201,9 @@ function fetchNavJSONP(code) {
     }
 
     script.onerror = () => {
-      cleanup()
+      clearTimeout(timer)
+      window._navCallbacks._current = null
+      if (script.parentNode) script.parentNode.removeChild(script)
       reject(new Error('JSONP加载失败'))
     }
 
@@ -388,35 +389,27 @@ export function useFundData() {
 
       // === 步骤2：获取净值 ===
       let navs = [], navSrc = navSource
-      try {
-        const result = await fetchEstimatedNavs(codes, navSource, customNavUrl)
-        navs = result.data
-        navSrc = result.source || navSource
-      } catch (err) {
-        console.warn('[useFundData] Vercel净值API失败:', err.message)
-        // 备用：浏览器直连天天基金 JSONP
-        // 检查行情数据里是否已有 IOPV
-        const hasIOPV = prices.some(p => p.estimatedNav > 0)
-        const jsonpCodes = codes && codes.length > 0 ? codes : prices.map(p => p.code).filter(Boolean)
 
-        if (!hasIOPV && jsonpCodes.length > 0) {
-          try {
-            // 串行只取前30只（天天基金JSONP不可并发）
-            const batch = jsonpCodes.slice(0, 30)
-            console.log('[useFundData] JSONP净值串行获取...', batch.length, '个')
-            const direct = await fetchNavsDirectJSONP(batch)
-            navs = direct.data
-            navSrc = 'tiantian_direct'
-            if (jsonpCodes.length > 30) {
-              navError.value = `净值已获取前30只（共${jsonpCodes.length}只，其余按价格排序后加载）`
-            }
-          } catch (e2) {
-            console.warn('[useFundData] JSONP净值失败:', e2.message)
-            navError.value = '净值数据暂不可用'
+      // 先检查行情数据里是否已有 IOPV
+      const hasIOPV = prices.some(p => p.estimatedNav > 0)
+      const jsonpCodes = codes && codes.length > 0 ? codes : prices.map(p => p.code).filter(Boolean)
+
+      if (!hasIOPV && jsonpCodes.length > 0) {
+        try {
+          // 串行取前30只净值（天天基金JSONP不可并发）
+          const batch = jsonpCodes.slice(0, 30)
+          console.log('[useFundData] JSONP净值串行获取...', batch.length, '个')
+          navs = (await fetchNavsDirectJSONP(batch)).data
+          navSrc = 'tiantian_direct'
+          if (jsonpCodes.length > 30) {
+            navError.value = `净值已获取前30只（共${jsonpCodes.length}只）`
           }
-        } else {
+        } catch (e2) {
+          console.warn('[useFundData] JSONP净值失败:', e2.message)
           navError.value = '净值数据暂不可用'
         }
+      } else if (!hasIOPV) {
+        navError.value = '净值数据暂不可用'
       }
 
       // === 合并 ===
