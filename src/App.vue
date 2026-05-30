@@ -125,7 +125,8 @@ function doRefreshWithSettings() {
     navSource: apiParams.navSource,
     customMarketUrl: apiParams.customMarketUrl,
     customNavUrl: apiParams.customNavUrl,
-    cacheDuration: settings.refreshInterval
+    cacheDuration: settings.refreshInterval,
+    directMode: apiParams.directMode
   })
 }
 
