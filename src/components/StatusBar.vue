@@ -1,34 +1,33 @@
 <template>
-  <div class="status-bar fixed top-0 left-0 right-0 z-50 px-3 py-2 flex items-center justify-between text-xs bg-bg-card/95 backdrop-blur border-b border-white/5"
-       :style="{ paddingTop: 'calc(var(--safe-area-top) + 0.5rem)' }">
+  <div class="status-bar fixed top-0 left-0 right-0 z-50 px-4 py-3 flex items-center justify-between text-sm bg-bg-card/85 backdrop-blur-xl border-b border-white/[0.06] shadow-lg shadow-black/20"
+       :style="{ paddingTop: 'calc(var(--safe-area-top) + 0.75rem)' }">
     <!-- 左侧：交易状态 -->
-    <div class="flex items-center gap-2">
-      <span class="text-sm">{{ marketStatus.icon }}</span>
+    <div class="flex items-center gap-2.5">
+      <span class="text-lg">{{ marketStatus.icon }}</span>
       <span
-        class="font-medium"
+        class="font-semibold text-sm"
         :class="{
-          'text-green-400': marketStatus.status === 'trading',
+          'text-emerald-400': marketStatus.status === 'trading',
           'text-yellow-400': marketStatus.status === 'pre' || marketStatus.status === 'lunch',
           'text-muted': marketStatus.status === 'closed'
         }"
       >
         {{ marketStatus.label }}
       </span>
-      <!-- 盘中绿色脉冲点 -->
       <span
         v-if="marketStatus.status === 'trading'"
-        class="pulse-dot bg-green-400"
+        class="pulse-dot bg-emerald-400"
       ></span>
     </div>
 
     <!-- 中间：倒计时 + 最后更新 -->
     <div class="flex items-center gap-3">
-      <span v-if="lastUpdate" class="text-muted text-2xs hidden sm:inline">
-        更新于 {{ formatTime(lastUpdate) }}
+      <span v-if="lastUpdate" class="text-muted text-xs hidden sm:inline font-mono-num">
+        {{ formatTime(lastUpdate) }}
       </span>
       <span
         v-if="isEnabled && tradingNow"
-        class="text-muted text-2xs font-mono-num tabular-nums w-10 text-right"
+        class="text-muted text-xs font-mono-num tabular-nums min-w-[36px] text-right"
       >
         {{ countdown }}s
       </span>
@@ -36,24 +35,24 @@
 
     <!-- 右侧：操作按钮 -->
     <div class="flex items-center gap-2">
-      <!-- 自动刷新开关 -->
       <button
         @click="$emit('toggle-auto')"
-        class="px-2 py-1 rounded text-2xs transition-colors"
-        :class="isEnabled ? 'bg-accent/20 text-accent' : 'bg-white/5 text-muted'"
+        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+        :class="isEnabled
+          ? 'bg-accent/20 text-accent ring-1 ring-accent/30'
+          : 'bg-white/5 text-muted hover:bg-white/10'"
         :title="isEnabled ? '自动刷新中' : '自动刷新已关闭'"
       >
         {{ isEnabled ? '🔄 自动' : '⏸ 手动' }}
       </button>
 
-      <!-- 手动刷新按钮 -->
       <button
         @click="$emit('refresh')"
         :disabled="isRefreshing"
-        class="px-3 py-1 rounded bg-accent/20 text-accent hover:bg-accent/30 transition-colors disabled:opacity-50 flex items-center gap-1"
+        class="px-4 py-1.5 rounded-lg bg-accent/20 text-accent hover:bg-accent/35 active:scale-95 transition-all duration-200 disabled:opacity-50 flex items-center gap-1.5 text-xs font-medium ring-1 ring-accent/25"
       >
         <span :class="{ 'animate-spin': isRefreshing }">↻</span>
-        <span class="hidden sm:inline">{{ isRefreshing ? '刷新中' : '刷新' }}</span>
+        <span class="hidden sm:inline">{{ isRefreshing ? '刷新中...' : '刷新' }}</span>
       </button>
     </div>
   </div>

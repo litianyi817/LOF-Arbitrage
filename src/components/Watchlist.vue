@@ -16,8 +16,8 @@
           </div>
 
           <!-- 标题 -->
-          <div class="flex items-center justify-between px-5 py-3 border-b border-white/5">
-            <h3 class="font-semibold">⭐ 关注列表</h3>
+          <div class="flex items-center justify-between px-5 py-4 border-b border-white/5">
+            <h3 class="font-semibold text-base">⭐ 关注列表</h3>
             <button
               @click="$emit('close')"
               class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-muted hover:text-white transition-colors"

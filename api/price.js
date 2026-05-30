@@ -2,25 +2,24 @@
  * /api/price.js — Vercel Serverless Function
  * 代理天天基金API，获取基金实时估算净值(IOPV)
  *
- * 调用方式: GET /api/price?code=161116
- *            GET /api/price?codes=161116,160505,...
- *
- * 支持批量查询（并发请求，最多20个）
+ * 调用方式: GET /api/price?codes=161116,160505,...
+ * 
+ * v1.1: 减小批大小和超时，适配Vercel 10s限制
  */
 
 const FUND_API_BASE = 'https://fundgz.1234567.com.cn/js'
 
-// 单个基金净值查询
+// 单个基金净值查询（超时3秒）
 async function fetchFundNav(code) {
   const url = `${FUND_API_BASE}/${code}.js`
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), 3000)
 
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://fund.eastmoney.com/'
       }
     })
@@ -35,20 +34,26 @@ async function fetchFundNav(code) {
     // 天天基金返回 JSONP 格式: jsonpgz({...});
     const jsonMatch = text.match(/jsonpgz\((\{[\s\S]*?\})\)/i)
     if (!jsonMatch) {
-      return { code, error: '无法解析净值数据', raw: text.substring(0, 100) }
+      return { code, error: '无法解析净值数据' }
     }
 
     const raw = JSON.parse(jsonMatch[1])
 
+    // gsz=估算净值, dwjz=单位净值, gztime=估算时间
+    const estimatedNav = parseFloat(raw.gsz) || 0
+    const nav = parseFloat(raw.dwjz) || 0
+
     return {
       code: raw.fundcode || code,
       name: raw.name || '',
-      nav: parseFloat(raw.dwjz) || 0,           // 单位净值（上一交易日）
-      estimatedNav: parseFloat(raw.gsz) || 0,    // 估算净值（盘中实时）
-      estimatedTime: raw.gztime || '',            // 估算时间
-      estimatedPct: parseFloat(raw.gszzl) || 0,  // 估算涨跌幅
-      navDate: raw.jzrq || '',                    // 净值日期
-      navAcc: parseFloat(raw.ljjz) || 0           // 累计净值
+      nav,                                          // 单位净值（上一交易日确认值）
+      estimatedNav,                                 // 估算净值（盘中实时，休市时为0）
+      estimatedTime: raw.gztime || '',
+      estimatedPct: parseFloat(raw.gszzl) || 0,
+      navDate: raw.jzrq || '',
+      navAcc: parseFloat(raw.ljjz) || 0,
+      // 休市时 gsz=0，此时用 dwjz 作为显示净值
+      displayNav: estimatedNav > 0 ? estimatedNav : nav
     }
   } catch (err) {
     clearTimeout(timeout)
@@ -74,7 +79,7 @@ export default async function handler(req, res) {
     const codesParam = searchParams.get('codes')
 
     const codes = codesParam
-      ? codesParam.split(',').filter(Boolean).slice(0, 20)
+      ? codesParam.split(',').filter(Boolean).slice(0, 15)  // 最多15个（Vercel 10s限制）
       : codeParam
         ? [codeParam]
         : []
@@ -87,9 +92,9 @@ export default async function handler(req, res) {
       })
     }
 
-    // 并发查询（限制同时最多10个请求）
+    // 并发查询（批大小降至5，确保10秒内完成）
     const results = []
-    const batchSize = 10
+    const batchSize = 5
     for (let i = 0; i < codes.length; i += batchSize) {
       const batch = codes.slice(i, i + batchSize)
       const batchResults = await Promise.allSettled(
@@ -101,6 +106,13 @@ export default async function handler(req, res) {
         } else {
           results.push({ code: 'unknown', error: r.reason?.message || '请求失败' })
         }
+      }
+    }
+
+    // 补充 displayNav 字段：优先用估算净值，否则用上一交易日净值
+    for (const r of results) {
+      if (!r.error && r.displayNav === undefined) {
+        r.displayNav = r.estimatedNav > 0 ? r.estimatedNav : r.nav
       }
     }
 

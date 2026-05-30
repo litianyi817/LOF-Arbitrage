@@ -33,10 +33,15 @@ export default {
         mono: ['"SF Mono"', '"Cascadia Code"', 'Consolas', 'monospace']
       },
       fontSize: {
-        '2xs': ['0.625rem', { lineHeight: '0.875rem' }]
+        '2xs': ['0.75rem', { lineHeight: '1rem' }]  // 从10px→12px
       },
       screens: {
-        'xs': '375px'
+        'xs': '375px',
+        '3xl': '1920px',    // 2K
+        '4xl': '2560px'     // 4K
+      },
+      maxWidth: {
+        'screen-3xl': '1920px'
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'

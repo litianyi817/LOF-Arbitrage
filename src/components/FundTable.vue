@@ -1,114 +1,127 @@
 <template>
-  <div class="fund-table w-full">
+  <div class="fund-table w-full max-w-[1920px] mx-auto">
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between px-3 py-2 bg-bg-card/50 border-b border-white/5">
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-muted">
-          共 <span class="text-white font-medium">{{ filteredFunds.length }}</span> 只基金
+    <div class="flex items-center justify-between px-4 py-3 bg-bg-card/50 border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-muted">
+          共 <span class="text-white font-semibold">{{ filteredFunds.length }}</span> 只基金
         </span>
-        <span v-if="loading" class="text-2xs text-accent animate-pulse">加载中...</span>
+        <span v-if="loading" class="text-xs text-accent animate-pulse">加载中...</span>
+        <span v-if="!loading && lastUpdateText" class="text-xs text-muted hidden sm:inline">
+          · {{ lastUpdateText }}
+        </span>
       </div>
 
       <!-- 排序切换 -->
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1.5">
         <button
           v-for="s in sortOptions"
           :key="s.key"
           @click="toggleSort(s.key)"
-          class="px-2 py-0.5 rounded text-2xs transition-colors"
-          :class="sortKey === s.key ? 'bg-accent/20 text-accent' : 'text-muted hover:text-white'"
+          class="px-3 py-1 rounded text-xs font-medium transition-colors"
+          :class="sortKey === s.key
+            ? 'bg-accent/25 text-accent shadow-sm shadow-accent/10'
+            : 'text-muted hover:text-white hover:bg-white/5'"
         >
           {{ s.label }}
-          <span v-if="sortKey === s.key" class="ml-0.5">{{ sortAsc ? '↑' : '↓' }}</span>
+          <span v-if="sortKey === s.key" class="ml-1 text-sm">{{ sortAsc ? '↑' : '↓' }}</span>
         </button>
       </div>
     </div>
 
-    <!-- 表头 -->
-    <div class="hidden sm:grid grid-cols-12 gap-1 px-3 py-2 text-2xs text-muted uppercase tracking-wider border-b border-white/5 bg-bg/50">
-      <div class="col-span-2 cursor-pointer select-none" @click="toggleSort('code')">
+    <!-- 表头 - 桌面端 -->
+    <div class="hidden xl:grid grid-cols-12 gap-2 px-4 py-2.5 text-xs text-muted uppercase tracking-wider border-b border-white/5 bg-bg/70 sticky top-0 z-10 backdrop-blur-sm">
+      <div class="col-span-2 cursor-pointer select-none hover:text-white transition-colors" @click="toggleSort('code')">
         代码 {{ sortKey === 'code' ? (sortAsc ? '↑' : '↓') : '' }}
       </div>
-      <div class="col-span-3">名称</div>
-      <div class="col-span-2 text-right cursor-pointer select-none" @click="toggleSort('price')">
+      <div class="col-span-3 cursor-pointer select-none hover:text-white transition-colors" @click="toggleSort('name')">
+        基金名称 {{ sortKey === 'name' ? (sortAsc ? '↑' : '↓') : '' }}
+      </div>
+      <div class="col-span-2 text-right cursor-pointer select-none hover:text-white transition-colors" @click="toggleSort('price')">
         场内价 {{ sortKey === 'price' ? (sortAsc ? '↑' : '↓') : '' }}
       </div>
       <div class="col-span-2 text-right">估算净值</div>
-      <div class="col-span-2 text-right cursor-pointer select-none font-bold" @click="toggleSort('premium')">
+      <div class="col-span-2 text-right cursor-pointer select-none hover:text-white transition-colors font-semibold text-accent" @click="toggleSort('premium')">
         溢价率 {{ sortKey === 'premium' ? (sortAsc ? '↑' : '↓') : '' }}
       </div>
       <div class="col-span-1 text-center">关注</div>
     </div>
 
-    <!-- 数据行 -->
-    <div class="max-h-[calc(var(--vh,1vh)*100-280px)] sm:max-h-[calc(var(--vh,1vh)*100-220px)] overflow-y-auto">
+    <!-- 数据行区域 -->
+    <div class="overflow-y-auto" :style="{ maxHeight: tableMaxHeight }">
       <!-- 骨架屏 -->
       <template v-if="loading && funds.length === 0">
-        <div v-for="i in 8" :key="'sk'+i" class="px-3 py-2.5 border-b border-white/5">
-          <div class="flex items-center gap-3">
-            <div class="skeleton h-4 w-16 rounded"></div>
-            <div class="skeleton h-4 flex-1 rounded"></div>
-            <div class="skeleton h-4 w-20 rounded"></div>
-            <div class="skeleton h-4 w-16 rounded"></div>
+        <div v-for="i in 6" :key="'sk'+i" class="px-4 py-4 border-b border-white/5">
+          <div class="flex items-center gap-4">
+            <div class="skeleton h-5 w-16 rounded"></div>
+            <div class="skeleton h-5 flex-1 rounded"></div>
+            <div class="skeleton h-5 w-24 rounded"></div>
+            <div class="skeleton h-5 w-20 rounded"></div>
           </div>
         </div>
       </template>
 
       <!-- 数据行 -->
       <div
-        v-for="fund in sortedFunds"
+        v-for="(fund, idx) in sortedFunds"
         :key="fund.code"
         @click="$emit('select', fund)"
-        class="tr-hover px-3 py-2.5 border-b border-white/5 cursor-pointer transition-colors grid grid-cols-12 gap-1 items-center text-sm"
-        :class="{
-          'bg-up-bg/40': fund.premiumLevel === 'deep-up',
-          'bg-up-bg/20': fund.premiumLevel === 'up',
-          'bg-down-bg/40': fund.premiumLevel === 'deep-down',
-          'bg-down-bg/20': fund.premiumLevel === 'down'
-        }"
+        class="tr-hover px-4 py-3.5 border-b border-white/[0.03] cursor-pointer transition-all duration-150 grid grid-cols-12 gap-2 items-center text-sm"
+        :class="[
+          idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]',
+          {
+            '!bg-up-bg/50 border-l-[3px] border-l-up': fund.premiumLevel === 'deep-up',
+            '!bg-up-bg/25 border-l-[3px] border-l-up-light': fund.premiumLevel === 'up',
+            '!bg-down-bg/50 border-l-[3px] border-l-down': fund.premiumLevel === 'deep-down',
+            '!bg-down-bg/25 border-l-[3px] border-l-down-light': fund.premiumLevel === 'down'
+          }
+        ]"
       >
-        <!-- 代码列 -->
-        <div class="col-span-2 font-mono-num text-xs sm:text-sm truncate">
+        <!-- 代码 -->
+        <div class="col-span-2 font-mono-num text-sm xl:text-base font-medium truncate tracking-tight">
           {{ fund.code }}
         </div>
 
-        <!-- 名称列 -->
-        <div class="col-span-3 text-xs sm:text-sm truncate text-muted">
+        <!-- 名称 -->
+        <div class="col-span-3 text-sm xl:text-base truncate text-slate-300">
           {{ fund.name }}
-          <span v-if="fund.hasNavError" class="text-yellow-500 text-2xs ml-1" title="净值数据异常">⚠</span>
+          <span v-if="fund.hasNavError" class="text-yellow-500 text-xs ml-1.5" title="净值数据暂不可用">⚠</span>
+          <span v-if="fund.navStale" class="text-muted text-2xs ml-1">缓存</span>
         </div>
 
         <!-- 场内价 -->
-        <div class="col-span-2 text-right font-mono-num text-xs sm:text-sm">
-          <span>{{ formatPrice(fund.marketPrice) }}</span>
-          <div class="text-2xs" :class="fund.changePct >= 0 ? 'text-up-light' : 'text-down-light'">
+        <div class="col-span-2 text-right font-mono-num text-sm xl:text-base">
+          <span class="font-semibold">{{ formatPrice(fund.marketPrice) }}</span>
+          <div class="text-xs" :class="fund.changePct >= 0 ? 'text-up-light' : 'text-down-light'">
             {{ fund.changePct >= 0 ? '+' : '' }}{{ fund.changePct.toFixed(2) }}%
           </div>
         </div>
 
         <!-- 估算净值 -->
-        <div class="col-span-2 text-right font-mono-num text-xs sm:text-sm">
-          {{ fund.estimatedNav ? formatPrice(fund.estimatedNav) : '--' }}
-          <div v-if="fund.estimatedTime" class="text-2xs text-muted">
+        <div class="col-span-2 text-right font-mono-num text-sm xl:text-base">
+          <span :class="{ 'text-muted': !fund.estimatedNav }">
+            {{ fund.estimatedNav ? formatPrice(fund.estimatedNav) : '--' }}
+          </span>
+          <div v-if="fund.estimatedTime" class="text-xs text-muted">
             {{ fund.estimatedTime }}
           </div>
         </div>
 
-        <!-- 溢价率 -->
-        <div class="col-span-2 text-right font-mono-num font-bold text-xs sm:text-sm">
+        <!-- 溢价率 - 放大突出的标签 -->
+        <div class="col-span-2 text-right">
           <span
-            class="px-1.5 py-0.5 rounded text-xs"
-            :class="premiumClass(fund)"
+            class="inline-block px-2.5 py-1 rounded-lg font-bold font-mono-num text-sm xl:text-base min-w-[80px] text-center"
+            :class="premiumBadgeClass(fund)"
           >
             {{ formatPremium(fund.premium) }}
           </span>
         </div>
 
-        <!-- 关注按钮 -->
+        <!-- 关注 -->
         <div class="col-span-1 text-center">
           <button
             @click.stop="$emit('toggle-watch', fund)"
-            class="text-lg transition-transform active:scale-125"
+            class="text-xl transition-all duration-150 active:scale-125 hover:scale-110"
             :title="isWatched(fund.code) ? '取消关注' : '添加关注'"
           >
             {{ isWatched(fund.code) ? '⭐' : '☆' }}
@@ -117,33 +130,30 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-if="!loading && filteredFunds.length === 0" class="py-16 text-center text-muted">
-        <div class="text-4xl mb-3">📊</div>
-        <p class="text-sm">暂无数据</p>
-        <p class="text-2xs mt-1">请检查是否为交易时间，或手动点击刷新</p>
+      <div v-if="!loading && filteredFunds.length === 0" class="py-20 text-center text-muted">
+        <div class="text-5xl mb-4">📊</div>
+        <p class="text-base font-medium">暂无数据</p>
+        <p class="text-sm mt-2 text-muted/70">点击底部刷新按钮获取数据</p>
+        <p class="text-xs mt-1 text-muted/50">如持续无数据，请检查网络连接</p>
       </div>
-    </div>
-
-    <!-- 移动端卡片视图（替代表头说明） -->
-    <div class="sm:hidden px-3 py-1.5 text-2xs text-muted border-t border-white/5 bg-bg/50">
-      点击行查看套利详情 · 左右滑动查看更多列
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { formatPct, formatMoney } from '../utils/calculator.js'
+import { formatPct } from '../utils/calculator.js'
 
 const props = defineProps({
   funds: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
-  isWatched: { type: Function, default: () => false }
+  isWatched: { type: Function, default: () => false },
+  lastUpdate: { type: Date, default: null }
 })
 
 defineEmits(['select', 'toggle-watch'])
 
-// 排序状态
+// 排序
 const sortKey = ref('premium')
 const sortAsc = ref(false)
 const sortOptions = [
@@ -157,9 +167,25 @@ function toggleSort(key) {
     sortAsc.value = !sortAsc.value
   } else {
     sortKey.value = key
-    sortAsc.value = key === 'premium' ? false : true // 溢价率默认降序
+    sortAsc.value = key === 'premium' ? false : true
   }
 }
+
+// 更新时间文本
+const lastUpdateText = computed(() => {
+  if (!props.lastUpdate) return ''
+  return props.lastUpdate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+})
+
+// 表格最大高度（响应式）
+const tableMaxHeight = computed(() => {
+  // 4K/2K: 更大高度; 1080p: 标准; 手机: 紧凑
+  if (typeof window === 'undefined') return '60vh'
+  const h = window.innerHeight
+  if (h > 1600) return 'calc(var(--vh, 1vh) * 72)'   // 4K
+  if (h > 1000) return 'calc(var(--vh, 1vh) * 65)'   // 2K/1080p
+  return 'calc(var(--vh, 1vh) * 55)'                   // 手机/平板
+})
 
 const filteredFunds = computed(() =>
   props.funds.filter(f => f.marketPrice > 0)
@@ -185,17 +211,22 @@ function formatPrice(v) {
 }
 
 function formatPremium(v) {
-  if (v === 0 || !isFinite(v)) return '0.00%'
+  if (!v || !isFinite(v)) return '--'
   return formatPct(v)
 }
 
-function premiumClass(fund) {
+function premiumBadgeClass(fund) {
   switch (fund.premiumLevel) {
-    case 'deep-up': return 'bg-up-deep text-up-light font-bold'
-    case 'up': return 'bg-up-bg text-up-light'
-    case 'deep-down': return 'bg-down-deep text-down-light font-bold'
-    case 'down': return 'bg-down-bg text-down-light'
-    default: return 'text-muted'
+    case 'deep-up':
+      return 'bg-red-500/25 text-red-400 ring-1 ring-red-500/40'
+    case 'up':
+      return 'bg-red-500/15 text-red-300 ring-1 ring-red-500/20'
+    case 'deep-down':
+      return 'bg-emerald-500/25 text-emerald-400 ring-1 ring-emerald-500/40'
+    case 'down':
+      return 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20'
+    default:
+      return 'bg-white/5 text-slate-400'
   }
 }
 </script>

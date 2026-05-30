@@ -36,32 +36,32 @@
           <!-- 内容 -->
           <div v-if="result" class="px-5 py-4 space-y-4">
             <!-- 溢价率概览 -->
-            <div class="text-center py-3 rounded-xl"
+            <div class="text-center py-4 rounded-xl"
                  :class="premiumBgColor">
-              <div class="text-xs text-muted mb-1">溢价率</div>
-              <div class="text-3xl font-bold font-mono-num" :class="premiumTextColor">
+              <div class="text-sm text-muted mb-1">溢价率</div>
+              <div class="text-4xl font-bold font-mono-num" :class="premiumTextColor">
                 {{ formatPct(result.premium) }}
               </div>
-              <div class="text-xs mt-1" :class="premiumTextColor">
+              <div class="text-sm mt-1.5" :class="premiumTextColor">
                 {{ result.suggestion }}
               </div>
             </div>
 
             <!-- 关键数据 -->
             <div class="grid grid-cols-2 gap-3">
-              <div class="bg-bg rounded-lg p-3 text-center">
-                <div class="text-2xs text-muted">场内价格</div>
-                <div class="text-lg font-mono-num font-semibold">{{ fund.marketPrice.toFixed(3) }}</div>
+              <div class="bg-bg rounded-lg p-4 text-center">
+                <div class="text-xs text-muted mb-1">场内价格</div>
+                <div class="text-xl font-mono-num font-semibold">{{ fund.marketPrice.toFixed(3) }}</div>
               </div>
-              <div class="bg-bg rounded-lg p-3 text-center">
-                <div class="text-2xs text-muted">估算净值</div>
-                <div class="text-lg font-mono-num font-semibold">{{ (fund.estimatedNav || 0).toFixed(4) }}</div>
+              <div class="bg-bg rounded-lg p-4 text-center">
+                <div class="text-xs text-muted mb-1">估算净值</div>
+                <div class="text-xl font-mono-num font-semibold">{{ (fund.estimatedNav || 0).toFixed(4) }}</div>
               </div>
             </div>
 
             <!-- 参数设置 -->
             <div class="bg-bg rounded-lg p-4 space-y-3">
-              <h4 class="text-xs text-muted uppercase tracking-wider">套利参数</h4>
+              <h4 class="text-sm text-muted uppercase tracking-wider font-semibold">套利参数</h4>
 
               <div class="flex items-center justify-between">
                 <label class="text-sm">申购份额</label>
@@ -70,7 +70,7 @@
                   type="number"
                   min="100"
                   step="100"
-                  class="w-32 bg-bg-card border border-white/10 rounded px-2 py-1 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
+                  class="w-36 bg-bg-card border border-white/10 rounded-lg px-3 py-1.5 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
                 />
               </div>
 
@@ -83,7 +83,7 @@
                     min="0"
                     max="5"
                     step="0.01"
-                    class="w-20 bg-bg-card border border-white/10 rounded px-2 py-1 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
+                    class="w-24 bg-bg-card border border-white/10 rounded-lg px-3 py-1.5 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
                   />
                   <span class="text-muted text-sm">%</span>
                 </div>
@@ -98,7 +98,7 @@
                     min="0"
                     max="5"
                     step="0.001"
-                    class="w-20 bg-bg-card border border-white/10 rounded px-2 py-1 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
+                    class="w-24 bg-bg-card border border-white/10 rounded-lg px-3 py-1.5 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
                   />
                   <span class="text-muted text-sm">%</span>
                 </div>
@@ -111,25 +111,25 @@
                   type="number"
                   min="1"
                   max="30"
-                  class="w-20 bg-bg-card border border-white/10 rounded px-2 py-1 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
+                  class="w-24 bg-bg-card border border-white/10 rounded-lg px-3 py-1.5 text-sm text-right font-mono-num focus:border-accent focus:outline-none"
                 />
               </div>
             </div>
 
             <!-- 计算结果 -->
             <div class="bg-bg rounded-lg p-4 space-y-3">
-              <h4 class="text-xs text-muted uppercase tracking-wider">套利预估</h4>
+              <h4 class="text-sm text-muted uppercase tracking-wider font-semibold">套利预估</h4>
 
               <div class="flex justify-between items-center">
                 <span class="text-sm text-muted">投入金额</span>
-                <span class="font-mono-num">
+                <span class="font-mono-num text-sm">
                   ¥{{ ((params.shares * fund.marketPrice) || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                 </span>
               </div>
 
               <div class="flex justify-between items-center">
                 <span class="text-sm text-muted">成本合计</span>
-                <span class="font-mono-num text-yellow-400">
+                <span class="font-mono-num text-sm text-yellow-400">
                   ¥{{ result.costDetail.totalCost.toFixed(2) }}
                 </span>
               </div>
@@ -138,7 +138,7 @@
 
               <div class="flex justify-between items-center">
                 <span class="text-sm text-muted">预期净利润</span>
-                <span class="font-mono-num font-bold text-lg"
+                <span class="font-mono-num font-bold text-xl"
                       :class="result.profit > 0 ? 'text-up-light' : 'text-down-light'">
                   ¥{{ result.profit.toFixed(2) }}
                 </span>
@@ -146,7 +146,7 @@
 
               <div class="flex justify-between items-center">
                 <span class="text-sm text-muted">净收益率</span>
-                <span class="font-mono-num"
+                <span class="font-mono-num text-sm"
                       :class="result.profitPct > 0 ? 'text-up-light' : 'text-down-light'">
                   {{ result.profitPct.toFixed(4) }}%
                 </span>
@@ -154,7 +154,7 @@
 
               <div class="flex justify-between items-center">
                 <span class="text-sm text-muted">年化收益率</span>
-                <span class="font-mono-num font-semibold"
+                <span class="font-mono-num font-semibold text-base"
                       :class="result.annualizedReturn > 5 ? 'text-up-light' : 'text-yellow-400'">
                   {{ result.annualizedReturn.toFixed(2) }}%
                 </span>
@@ -162,7 +162,7 @@
             </div>
 
             <!-- 建议 -->
-            <div class="text-center text-xs px-4 py-2 rounded-lg"
+            <div class="text-center text-sm px-4 py-3 rounded-lg font-medium"
                  :class="result.profit > 0 ? 'bg-up-bg text-up-light' : 'bg-white/5 text-muted'">
               💡 {{ result.suggestion }}
             </div>
