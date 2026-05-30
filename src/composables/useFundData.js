@@ -99,9 +99,14 @@ function mergeData(prices, navs, marketSource, navSource) {
 
   return prices.map(p => {
     const nav = navMap.get(p.code)
-    const hasNav = nav && (nav.displayNav > 0 || nav.estimatedNav > 0 || nav.nav > 0)
-    const navValue = hasNav ? (nav.displayNav || nav.estimatedNav || nav.nav) : 0
+
+    // 优先级: fund API 自带的IOPV > 天天基金估算净值 > 东方财富历史净值
+    const fromIOPV = p.estimatedNav || 0
+    const fromNavAPI = nav ? (nav.displayNav || nav.estimatedNav || nav.nav || 0) : 0
+    const navValue = fromIOPV > 0 ? fromIOPV : fromNavAPI
+
     const premium = navValue > 0 ? calcPremium(p.price, navValue) : 0
+    const actualNavSource = fromIOPV > 0 ? (p.navSource || 'eastmoney_iopv') : navSource
 
     return {
       code: p.code,
@@ -111,13 +116,13 @@ function mergeData(prices, navs, marketSource, navSource) {
       high: p.high, low: p.low, open: p.open, prevClose: p.prevClose,
       estimatedNav: navValue,
       navDate: nav?.navDate || '',
-      estimatedTime: nav?.estimatedTime || '',
+      estimatedTime: fromIOPV > 0 ? (p.estimatedTime || '实时') : (nav?.estimatedTime || ''),
       estimatedPct: nav?.estimatedPct || 0,
       premium,
       premiumLevel: getPremiumLevel(premium),
-      hasNavError: !hasNav,
+      hasNavError: navValue <= 0,
       marketSource,
-      navSource
+      navSource: actualNavSource
     }
   })
 }

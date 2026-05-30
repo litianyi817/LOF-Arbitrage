@@ -88,7 +88,7 @@ async function fetchEastmoney(codes) {
   base.set('po','1'); base.set('np','1'); base.set('fltt','2')
   base.set('invt','2'); base.set('fid','f3')
   base.set('secids', secids)
-  base.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18')
+  base.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25')
 
   for (const ut of UT_TOKENS) {
     const p = new URLSearchParams(base.toString()); p.set('ut', ut)
@@ -111,13 +111,22 @@ async function fetchEastmoney(codes) {
       const items = data?.data?.diff
       if (!items?.length) continue
       console.log('[eastmoney] 成功:', items.length, '条')
-      return items.map(it => ({
-        code: it.f12||'', name: it.f14||'',
-        price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
-        change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
-        low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
-        prevClose: parseFloat(it.f18)||0
-      }))
+      // 打印第一条的所有字段用于调试
+      if (items[0]) console.log('[eastmoney] 调试字段:', JSON.stringify(items[0]).substring(0, 300))
+      return items.map(it => {
+        const iopv = parseFloat(it.f21) || parseFloat(it.f20) || 0
+        return {
+          code: it.f12||'', name: it.f14||'',
+          price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
+          change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
+          low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
+          prevClose: parseFloat(it.f18)||0,
+          // IOPV 实时估值（ETF/LOF专属字段）
+          estimatedNav: iopv,
+          estimatedTime: iopv > 0 ? '实时' : '',
+          navSource: iopv > 0 ? 'eastmoney_iopv' : null
+        }
+      })
     } catch {}
   }
   throw new Error('eastmoney failed')
