@@ -59,6 +59,54 @@ async function fetchEstimatedNavs(codes, source, customUrl) {
 }
 
 /**
+ * 浏览器直连东方财富 JSONP 获取行情
+ */
+function fetchMarketJSONP(codes) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_em_cb_' + Date.now()
+    const secids = codes.map(c => {
+      if (c.startsWith('16') || c.startsWith('15')) return `0.${c}`
+      if (c.startsWith('50') || c.startsWith('51')) return `1.${c}`
+      return `0.${c}`
+    }).join(',')
+
+    const params = new URLSearchParams()
+    params.set('pn','1'); params.set('pz', String(codes.length + 5))
+    params.set('po','1'); params.set('np','1'); params.set('fltt','2')
+    params.set('invt','2'); params.set('fid','f3')
+    params.set('secids', secids)
+    params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18')
+    params.set('cb', cbName)
+
+    const script = document.createElement('script')
+    const timer = setTimeout(() => { cleanup(); reject(new Error('行情JSONP超时')) }, 8000)
+
+    function cleanup() {
+      clearTimeout(timer)
+      delete window[cbName]
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+
+    window[cbName] = (data) => {
+      cleanup()
+      const items = data?.data?.diff
+      if (!items?.length) { reject(new Error('行情数据为空')); return }
+      resolve(items.map(it => ({
+        code: it.f12||'', name: it.f14||'',
+        price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
+        change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
+        low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
+        prevClose: parseFloat(it.f18)||0
+      })))
+    }
+
+    script.onerror = () => { cleanup(); reject(new Error('行情JSONP加载失败')) }
+    script.src = `https://push2.eastmoney.com/api/qt/clist/get?${params.toString()}`
+    document.head.appendChild(script)
+  })
+}
+
+/**
  * 浏览器直连天天基金 JSONP 获取净值（Vercel 不可用时的备用方案）
  * 天天基金返回格式: jsonpgz({"fundcode":"...","gsz":"...",...})
  */
@@ -245,12 +293,31 @@ export function useFundData() {
         prices = result.data
         marketSrc = result.source || marketSource
       } catch (err) {
-        error.value = err.message
-        loading.value = false
-        fetchPromise = null
-        if (cachedFunds) { funds.value = cachedFunds; return cachedFunds }
-        funds.value = []
-        return []
+        console.warn('[useFundData] Vercel行情API失败:', err.message)
+        // 备用：浏览器直连东方财富 JSONP
+        const mktCodes = codes && codes.length > 0 ? codes : null
+        if (mktCodes && mktCodes.length > 0) {
+          try {
+            console.log('[useFundData] 尝试浏览器直连行情 JSONP...')
+            prices = await fetchMarketJSONP(mktCodes.slice(0, 20))
+            marketSrc = 'eastmoney_direct'
+          } catch (e2) {
+            console.warn('[useFundData] 行情JSONP也失败:', e2.message)
+            error.value = err.message
+            loading.value = false
+            fetchPromise = null
+            if (cachedFunds) { funds.value = cachedFunds; return cachedFunds }
+            funds.value = []
+            return []
+          }
+        } else {
+          error.value = err.message
+          loading.value = false
+          fetchPromise = null
+          if (cachedFunds) { funds.value = cachedFunds; return cachedFunds }
+          funds.value = []
+          return []
+        }
       }
 
       // === 步骤2：获取净值 ===

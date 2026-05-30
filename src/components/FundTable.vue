@@ -206,6 +206,7 @@ const SOURCE_LABELS = {
   alphavantage:  { icon: '📈', name: 'Alpha', color: '#9b59b6' },
   eastmoney_iopv:{ icon: '📡', name: '东财IOPV', color: '#4dabf7' },
   tiantian_direct:{ icon: '🏦', name: '天天直连', color: '#e67e22' },
+  eastmoney_direct:{ icon: '📡', name: '东财直连', color: '#4dabf7' },
   unknown:       { icon: '❓', name: '未知', color: '#8892b0' }
 }
 

@@ -119,9 +119,9 @@ const { settings, getApiParams } = useSettings()
 
 function doRefreshWithSettings() {
   const apiParams = getApiParams()
-  // Alpha Vantage 需要 codes，其他源不需要
-  const codes = apiParams.marketSource === 'alphavantage' ? getWatchCodes() : null
-  return fetchData(codes, true, {
+  // 始终传关注列表代码，Vercel 失败时 JSONP 备用
+  const codes = getWatchCodes()
+  return fetchData(codes.length > 0 ? codes : null, true, {
     marketSource: apiParams.marketSource,
     navSource: apiParams.navSource,
     customMarketUrl: apiParams.customMarketUrl,
