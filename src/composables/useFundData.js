@@ -4,7 +4,6 @@
  */
 import { ref, shallowRef } from 'vue'
 import { calcPremium, getPremiumLevel } from '../utils/calculator.js'
-import { fetchMarketPricesDirect, fetchNavDirect, testDirectConnection } from '../utils/directApi.js'
 
 let lastFetchTime = 0
 let cachedFunds = null
@@ -131,8 +130,7 @@ export function useFundData() {
       navSource = 'tiantian',
       customMarketUrl = '',
       customNavUrl = '',
-      cacheDuration = 30_000,
-      directMode = false
+      cacheDuration = 30_000
     } = options
 
     currentCacheDuration = cacheDuration
@@ -161,9 +159,7 @@ export function useFundData() {
       // === 步骤1：获取行情 ===
       let prices = [], marketSrc = marketSource
       try {
-        const result = directMode
-          ? await fetchMarketPricesDirect(codes)
-          : await fetchMarketPrices(codes, marketSource, customMarketUrl)
+        const result = await fetchMarketPrices(codes, marketSource, customMarketUrl)
         prices = result.data
         marketSrc = result.source || marketSource
       } catch (err) {
@@ -178,9 +174,7 @@ export function useFundData() {
       // === 步骤2：获取净值 ===
       let navs = [], navSrc = navSource
       try {
-        const result = directMode
-          ? await fetchNavDirect(codes)
-          : await fetchEstimatedNavs(codes, navSource, customNavUrl)
+        const result = await fetchEstimatedNavs(codes, navSource, customNavUrl)
         navs = result.data
         navSrc = result.source || navSource
       } catch (err) {

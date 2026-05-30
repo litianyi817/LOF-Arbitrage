@@ -90,49 +90,6 @@
               </div>
             </section>
 
-            <!-- ===== 连接模式 ===== -->
-            <section>
-              <h4 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                <span>🔗</span> 连接模式
-              </h4>
-              <div class="space-y-2">
-                <button
-                  @click="settings.directMode = true"
-                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left"
-                  :class="settings.directMode
-                    ? 'border-emerald-500/50 bg-emerald-500/10'
-                    : 'border-white/5 bg-bg hover:border-white/10'"
-                >
-                  <span class="text-xl">⚡</span>
-                  <div class="flex-1">
-                    <div class="text-sm font-medium">浏览器直连</div>
-                    <div class="text-xs text-muted mt-0.5">浏览器通过本地代理访问中国API — 速度快、数据全</div>
-                  </div>
-                  <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
-                       :class="settings.directMode ? 'border-emerald-500 bg-emerald-500' : 'border-white/20'">
-                    <span v-if="settings.directMode" class="text-white text-xs">✓</span>
-                  </div>
-                </button>
-                <button
-                  @click="settings.directMode = false"
-                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left"
-                  :class="!settings.directMode
-                    ? 'border-accent/50 bg-accent/10'
-                    : 'border-white/5 bg-bg hover:border-white/10'"
-                >
-                  <span class="text-xl">☁️</span>
-                  <div class="flex-1">
-                    <div class="text-sm font-medium">Vercel 代理</div>
-                    <div class="text-xs text-muted mt-0.5">通过Vercel服务器中转 — 无需本地代理，但海外IP可能被限</div>
-                  </div>
-                  <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
-                       :class="!settings.directMode ? 'border-accent bg-accent' : 'border-white/20'">
-                    <span v-if="!settings.directMode" class="text-white text-xs">✓</span>
-                  </div>
-                </button>
-              </div>
-            </section>
-
             <!-- ===== 刷新间隔 ===== -->
             <section>
               <h4 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">

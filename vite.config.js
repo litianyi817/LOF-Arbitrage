@@ -2,16 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// 构建时版本号：YYYYMMDD.HHMM
-const buildTime = new Date()
-const BUILD_ID = [
-  buildTime.getFullYear(),
-  String(buildTime.getMonth() + 1).padStart(2, '0'),
-  String(buildTime.getDate()).padStart(2, '0'),
-  '.',
-  String(buildTime.getHours()).padStart(2, '0'),
-  String(buildTime.getMinutes()).padStart(2, '0')
-].join('')
+// 构建时版本号：手动递增
+const BUILD_ID = '3'
 
 // 注入 __BUILD_ID__ 到所有源码
 function buildIdPlugin() {

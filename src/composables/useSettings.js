@@ -69,8 +69,7 @@ const DEFAULTS = {
   navSource: 'tiantian',
   refreshInterval: 30_000,
   customMarketUrl: '',
-  customNavUrl: '',
-  directMode: true  // 默认直连（浏览器→本地代理→中国API）
+  customNavUrl: ''
 }
 
 function loadSettings() {
@@ -124,8 +123,7 @@ export function useSettings() {
       marketSource: settings.marketSource === 'custom' ? 'custom' : settings.marketSource,
       navSource: settings.navSource === 'custom' ? 'custom' : settings.navSource,
       customMarketUrl: settings.customMarketUrl,
-      customNavUrl: settings.customNavUrl,
-      directMode: settings.directMode
+      customNavUrl: settings.customNavUrl
     }
   }
 
