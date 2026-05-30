@@ -396,13 +396,32 @@ export function useFundData() {
 
       if (!hasIOPV && jsonpCodes.length > 0) {
         try {
-          // 串行取前30只净值（天天基金JSONP不可并发）
-          const batch = jsonpCodes.slice(0, 30)
+          // 串行取净值（先取前100只做排名，其余后台加载）
+          const limit = 100
+          const batch = jsonpCodes.slice(0, limit)
           console.log('[useFundData] JSONP净值串行获取...', batch.length, '个')
           navs = (await fetchNavsDirectJSONP(batch)).data
           navSrc = 'tiantian_direct'
-          if (jsonpCodes.length > 30) {
-            navError.value = `净值已获取前30只（共${jsonpCodes.length}只）`
+          if (jsonpCodes.length > limit) {
+            navError.value = `净值加载中...（前${limit}只，其余后台获取中）`
+            // 后台继续加载剩余（不阻塞页面）
+            const remaining = jsonpCodes.slice(limit)
+            fetchNavsDirectJSONP(remaining).then(extra => {
+              // 更新缓存
+              if (cachedFunds) {
+                const extraMap = new Map(extra.data.filter(n => !n.error).map(n => [n.code, n]))
+                cachedFunds = cachedFunds.map(f => {
+                  const nav = extraMap.get(f.code)
+                  if (nav && nav.displayNav > 0) {
+                    const premium = calcPremium(f.marketPrice, nav.displayNav)
+                    return { ...f, estimatedNav: nav.displayNav, premium, premiumLevel: getPremiumLevel(premium), navSource: 'tiantian_direct', hasNavError: false }
+                  }
+                  return f
+                })
+                funds.value = cachedFunds
+                navError.value = null
+              }
+            }).catch(() => {})
           }
         } catch (e2) {
           console.warn('[useFundData] JSONP净值失败:', e2.message)

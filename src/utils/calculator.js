@@ -20,10 +20,11 @@ export function calcPremium(marketPrice, nav) {
  * @returns {'deep-up'|'up'|'neutral'|'down'|'deep-down'}
  */
 export function getPremiumLevel(premium) {
-  if (premium > 1) return 'deep-up'      // 深红色，溢价>1%
-  if (premium > 0.5) return 'up'         // 浅红色，溢价>0.5%
-  if (premium < -1) return 'deep-down'   // 深绿色，折价>1%
-  if (premium < -0.5) return 'down'      // 浅绿色，折价>0.5%
+  if (premium > 10) return 'hot'         // 红色，溢价>10%
+  if (premium > 5) return 'warm'         // 金色，5-10%
+  if (premium > 0) return 'mild'         // 紫色，0-5%
+  if (premium > -5) return 'cool'        // 绿色，-5~0%
+  if (premium <= -5) return 'cold'       // 深绿，<-5%
   return 'neutral'
 }
 

@@ -105,10 +105,11 @@
         :class="[
           idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]',
           {
-            '!bg-up-bg/50 border-l-[3px] border-l-up': fund.premiumLevel === 'deep-up',
-            '!bg-up-bg/25 border-l-[3px] border-l-up-light': fund.premiumLevel === 'up',
-            '!bg-down-bg/50 border-l-[3px] border-l-down': fund.premiumLevel === 'deep-down',
-            '!bg-down-bg/25 border-l-[3px] border-l-down-light': fund.premiumLevel === 'down'
+            '!bg-red-600/15 border-l-[3px] border-l-red-500': fund.premiumLevel === 'hot',
+            '!bg-amber-500/10 border-l-[3px] border-l-amber-500': fund.premiumLevel === 'warm',
+            '!bg-purple-500/10 border-l-[3px] border-l-purple-500': fund.premiumLevel === 'mild',
+            '!bg-green-500/10 border-l-[3px] border-l-green-500': fund.premiumLevel === 'cool',
+            '!bg-emerald-600/12 border-l-[3px] border-l-emerald-500': fund.premiumLevel === 'cold'
           }
         ]"
       >
@@ -335,14 +336,16 @@ function formatPremium(v) {
 
 function premiumBadgeClass(fund) {
   switch (fund.premiumLevel) {
-    case 'deep-up':
-      return 'bg-red-500/25 text-red-400 ring-1 ring-red-500/40'
-    case 'up':
-      return 'bg-red-500/15 text-red-300 ring-1 ring-red-500/20'
-    case 'deep-down':
-      return 'bg-emerald-500/25 text-emerald-400 ring-1 ring-emerald-500/40'
-    case 'down':
-      return 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20'
+    case 'hot':   // 溢价>10% 红色
+      return 'bg-red-600/30 text-red-300 ring-1 ring-red-500/60 font-extrabold'
+    case 'warm':  // 5-10% 金色
+      return 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-500/50 font-bold'
+    case 'mild':  // 0-5% 紫色
+      return 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/40'
+    case 'cool':  // -5~0% 绿色
+      return 'bg-green-500/15 text-green-300 ring-1 ring-green-500/30'
+    case 'cold':  // <-5% 深绿
+      return 'bg-emerald-600/20 text-emerald-300 ring-1 ring-emerald-500/40'
     default:
       return 'bg-white/5 text-slate-400'
   }

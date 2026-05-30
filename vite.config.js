@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // 构建时版本号：手动递增
-const BUILD_ID = '10'
+const BUILD_ID = '11'
 
 // 注入 __BUILD_ID__ 到所有源码
 function buildIdPlugin() {
