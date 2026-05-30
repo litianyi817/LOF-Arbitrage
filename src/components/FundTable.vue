@@ -1,18 +1,40 @@
 <template>
   <div class="fund-table w-full max-w-[1920px] mx-auto">
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between px-4 py-3 bg-bg-card/50 border-b border-white/5">
-      <div class="flex items-center gap-3">
-        <span class="text-sm text-muted">
-          共 <span class="text-white font-semibold">{{ filteredFunds.length }}</span> 只基金
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-3 bg-bg-card/50 border-b border-white/5">
+      <!-- 左侧：统计 + 搜索 -->
+      <div class="flex items-center gap-3 flex-1">
+        <span class="text-sm text-muted whitespace-nowrap">
+          共 <span class="text-white font-semibold">{{ displayFunds.length }}</span> 只
         </span>
-        <span v-if="loading" class="text-xs text-accent animate-pulse">加载中...</span>
+
+        <!-- 代码搜索框 -->
+        <div class="relative flex-1 max-w-[260px]">
+          <input
+            v-model="searchQuery"
+            @keydown.enter="handleSearchEnter"
+            type="text"
+            inputmode="numeric"
+            placeholder="输入代码搜索..."
+            maxlength="6"
+            class="w-full bg-bg border text-sm rounded-lg pl-8 pr-8 py-1.5 font-mono-num placeholder:text-muted/40 focus:border-accent focus:outline-none transition-colors"
+            :class="searchQuery ? 'border-accent/40' : 'border-white/10'"
+          />
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted">🔍</span>
+          <button
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-white text-sm"
+          >✕</button>
+        </div>
+
+        <span v-if="loading" class="text-xs text-accent animate-pulse hidden sm:inline">加载中...</span>
         <span v-if="!loading && lastUpdateText" class="text-xs text-muted hidden sm:inline">
-          · {{ lastUpdateText }}
+          {{ lastUpdateText }}
         </span>
       </div>
 
-      <!-- 排序切换 -->
+      <!-- 右侧：排序切换 -->
       <div class="flex items-center gap-1.5">
         <button
           v-for="s in sortOptions"
@@ -215,7 +237,22 @@ const props = defineProps({
   lastUpdate: { type: Date, default: null }
 })
 
-defineEmits(['select', 'toggle-watch'])
+const emit = defineEmits(['select', 'toggle-watch', 'search-code'])
+
+// 搜索
+const searchQuery = ref('')
+
+function handleSearchEnter() {
+  const q = searchQuery.value.trim()
+  if (q.length >= 6 && /^\d{6}$/.test(q)) {
+    // 检查是否已在当前列表中
+    const found = props.funds.find(f => f.code === q)
+    if (!found) {
+      // 不在列表中，触发外部查询
+      emit('search-code', q)
+    }
+  }
+}
 
 // 排序
 const sortKey = ref('premium')
@@ -251,9 +288,19 @@ const tableMaxHeight = computed(() => {
   return 'calc(var(--vh, 1vh) * 55)'                   // 手机/平板
 })
 
-const filteredFunds = computed(() =>
-  props.funds.filter(f => f.marketPrice > 0)
-)
+const filteredFunds = computed(() => {
+  let arr = props.funds.filter(f => f.marketPrice > 0)
+
+  // 代码/名称搜索过滤
+  const q = searchQuery.value.trim()
+  if (q) {
+    arr = arr.filter(f =>
+      f.code.includes(q) || (f.name && f.name.includes(q))
+    )
+  }
+
+  return arr
+})
 
 const sortedFunds = computed(() => {
   const arr = [...filteredFunds.value]
@@ -268,6 +315,9 @@ const sortedFunds = computed(() => {
   })
   return arr
 })
+
+// 模板中使用的名称（保持兼容）
+const displayFunds = computed(() => filteredFunds.value)
 
 function formatPrice(v) {
   if (v <= 0) return '--'

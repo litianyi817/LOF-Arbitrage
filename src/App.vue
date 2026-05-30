@@ -59,6 +59,7 @@
           :isWatched="(code) => isWatched(code)"
           @select="openArbitrage"
           @toggle-watch="handleToggleWatch"
+          @search-code="handleSearchCode"
         />
       </div>
     </main>
@@ -146,6 +147,30 @@ function openArbitrage(fund) { selectedFund.value = fund }
 function handleToggleWatch(fund) {
   const added = toggleFund(fund)
   if (added) doRefreshWithSettings()
+}
+
+// 搜索不在当前列表中的代码 → 临时加入查询
+async function handleSearchCode(code) {
+  if (!code || code.length < 6) return
+  if (!isWatched(code)) {
+    watchlist.value = [...watchlist.value, { code, name: '查询中...' }]
+  }
+  // 直接用这个代码去查
+  await fetchData([code], true, {
+    marketSource: getApiParams().marketSource,
+    navSource: getApiParams().navSource,
+    customMarketUrl: getApiParams().customMarketUrl,
+    customNavUrl: getApiParams().customNavUrl,
+    cacheDuration: settings.refreshInterval
+  })
+  // 查完后更新关注列表中的名称
+  const fund = funds.value?.find(f => f.code === code)
+  if (fund) {
+    const idx = watchlist.value.findIndex(w => w.code === code)
+    if (idx !== -1) {
+      watchlist.value[idx] = { code: fund.code, name: fund.name }
+    }
+  }
 }
 
 function setVH() {
