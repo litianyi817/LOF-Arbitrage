@@ -118,9 +118,9 @@ const { watchlist, removeFund, isWatched, toggleFund, resetToDefault, exportConf
 const { settings, getApiParams } = useSettings()
 
 function doRefreshWithSettings() {
-  const codes = getWatchCodes()
   const apiParams = getApiParams()
-  return fetchData(codes, true, {
+  // 不传 codes → API 返回全市场数据
+  return fetchData(null, true, {
     marketSource: apiParams.marketSource,
     navSource: apiParams.navSource,
     customMarketUrl: apiParams.customMarketUrl,

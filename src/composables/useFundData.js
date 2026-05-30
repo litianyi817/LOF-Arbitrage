@@ -14,8 +14,9 @@ let currentCacheDuration = 30_000
  * 获取场内实时行情
  */
 async function fetchMarketPrices(codes, source, customUrl) {
-  const codeStr = codes.join(',')
-  let url = `/api/fund?codes=${codeStr}`
+  let url = '/api/fund'
+  if (codes && codes.length > 0) url += `?codes=${codes.join(',')}`
+  else url += '?all=true'
   if (source) url += `&source=${source}`
   if (customUrl) url += `&customUrl=${encodeURIComponent(customUrl)}`
 
@@ -34,7 +35,8 @@ async function fetchMarketPrices(codes, source, customUrl) {
  * 获取估算净值
  */
 async function fetchEstimatedNavs(codes, source, customUrl) {
-  let url = `/api/price?codes=${codes.join(',')}`
+  let url = '/api/price'
+  if (codes && codes.length > 0) url += `?codes=${codes.join(',')}`
   if (source) url += `&source=${source}`
   if (customUrl) url += `&customUrl=${encodeURIComponent(customUrl)}`
 
@@ -120,7 +122,8 @@ export function useFundData() {
   const activeNavSource = ref('tiantian')
 
   async function fetchData(codes, force = false, options = {}) {
-    if (!codes || codes.length === 0) {
+    // null = 全市场模式；空数组 = 不查询
+    if (codes && codes.length === 0) {
       funds.value = []
       return
     }
