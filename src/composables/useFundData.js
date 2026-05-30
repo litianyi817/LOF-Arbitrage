@@ -91,27 +91,36 @@ async function fetchMarketJSONPAll() {
   const base = 'https://push2.eastmoney.com/api/qt/clist/get'
   const allFunds = []
 
-  // 深市 LOF/ETF
-  const mkts = ['b:MK0021', 'b:MK0022']
+  // 多组市场过滤：LOF + ETF（ETF网格可能包含IOPV字段）
+  const mkts = [
+    'b:MK0406',  // 深市ETF（可能有IOPV）
+    'b:MK0407',  // 沪市ETF
+    'b:MK0021',  // 深市LOF
+    'b:MK0022',  // 沪市LOF
+  ]
   for (const fs of mkts) {
     try {
       const params = new URLSearchParams()
       params.set('pn','1'); params.set('pz','500'); params.set('po','1')
       params.set('np','1'); params.set('fltt','2'); params.set('invt','2')
       params.set('fid','f3'); params.set('fs', fs)
-      params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18')
+      params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18,f20,f21,f22')
 
       const data = await jsonpRequest(`${base}?${params.toString()}`, 12000)
       const items = data?.data?.diff || []
       console.log('[JSONP]', fs, ':', items.length, '条')
 
       for (const it of items) {
+        const iopv = parseFloat(it.f21) || parseFloat(it.f22) || parseFloat(it.f20) || 0
         allFunds.push({
           code: it.f12||'', name: it.f14||'',
           price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
           change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
           low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
-          prevClose: parseFloat(it.f18)||0
+          prevClose: parseFloat(it.f18)||0,
+          estimatedNav: iopv,
+          estimatedTime: iopv > 0 ? '实时' : '',
+          navSource: iopv > 0 ? 'eastmoney_iopv' : null
         })
       }
     } catch (e) {
@@ -206,8 +215,8 @@ function fetchNavJSONP(code) {
  */
 async function fetchNavsDirectJSONP(codes) {
   const results = []
-  for (let i = 0; i < codes.length; i += 3) {
-    const batch = codes.slice(i, i + 3)
+  for (let i = 0; i < codes.length; i += 10) {
+    const batch = codes.slice(i, i + 10)
     const settled = await Promise.allSettled(batch.map(fetchNavJSONP))
     for (const r of settled) {
       results.push(r.status === 'fulfilled' ? r.value : { code: 'unknown', error: r.reason?.message || '失败' })
@@ -386,12 +395,13 @@ export function useFundData() {
         const jsonpCodes = codes && codes.length > 0 ? codes : prices.map(p => p.code).filter(Boolean)
         if (jsonpCodes.length > 0) {
           try {
-            console.log('[useFundData] 尝试浏览器直连 JSONP...', jsonpCodes.length, '个')
-            const direct = await fetchNavsDirectJSONP(jsonpCodes.slice(0, 8))
+            console.log('[useFundData] JSONP净值批量获取...', jsonpCodes.length, '个（并发10）')
+            // 全部获取，并发10个
+            const direct = await fetchNavsDirectJSONP(jsonpCodes)
             navs = direct.data
             navSrc = 'tiantian_direct'
           } catch (e2) {
-            console.warn('[useFundData] JSONP也失败:', e2.message)
+            console.warn('[useFundData] JSONP净值失败:', e2.message)
             navError.value = '净值数据暂不可用'
           }
         } else {
