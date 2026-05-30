@@ -1,49 +1,48 @@
 /**
- * composables/useFundData.js
- * LOF基金数据获取、缓存、合并逻辑
- * 
- * v1.1: 解耦行情和净值请求，独立容错
+ * composables/useFundData.js v2
+ * 支持多数据源切换 + 来源标注
  */
 import { ref, shallowRef } from 'vue'
 import { calcPremium, getPremiumLevel } from '../utils/calculator.js'
 
-const CACHE_DURATION = 30_000 // 30秒缓存
-
-// 全局缓存（跨组件共享）
 let lastFetchTime = 0
 let cachedFunds = null
 let fetchPromise = null
+let currentCacheDuration = 30_000
 
 /**
- * 获取场内实时行情（通过Vercel Serverless代理）
+ * 获取场内实时行情
  */
-async function fetchMarketPrices(codes) {
+async function fetchMarketPrices(codes, source, customUrl) {
   const codeStr = codes.join(',')
-  const response = await fetch(`/api/fund?codes=${codeStr}`)
+  let url = `/api/fund?codes=${codeStr}`
+  if (source) url += `&source=${source}`
+  if (customUrl) url += `&customUrl=${encodeURIComponent(customUrl)}`
+
+  const response = await fetch(url)
   if (!response.ok) throw new Error(`行情API: HTTP ${response.status}`)
   const json = await response.json()
   if (!json.success) throw new Error(json.error || '行情数据获取失败')
   if (!json.data || json.data.length === 0) throw new Error('行情数据为空')
-  return json.data
+  return { data: json.data, source: json.source || source || 'eastmoney' }
 }
 
 /**
- * 获取估算净值（通过Vercel Serverless代理）
- * 注意：此API可能因Vercel海外IP被限制，失败时不影响行情展示
+ * 获取估算净值
  */
-async function fetchEstimatedNavs(codes) {
-  const response = await fetch(`/api/price?codes=${codes.join(',')}`)
+async function fetchEstimatedNavs(codes, source, customUrl) {
+  let url = `/api/price?codes=${codes.join(',')}`
+  if (source) url += `&source=${source}`
+  if (customUrl) url += `&customUrl=${encodeURIComponent(customUrl)}`
+
+  const response = await fetch(url)
   if (!response.ok) throw new Error(`净值API: HTTP ${response.status}`)
   const json = await response.json()
   if (!json.success) throw new Error(json.error || '净值数据获取失败')
-  return json.data || []
+  return { data: json.data || [], source: json.source || source || 'tiantian' }
 }
 
-/**
- * 从行情数据构建基础基金对象（净值不可用时使用）
- */
-function buildBasicFunds(prices, existingFunds) {
-  // 从已有缓存中获取净值信息
+function buildBasicFunds(prices, existingFunds, marketSource) {
   const existingMap = new Map()
   if (existingFunds) {
     for (const f of existingFunds) {
@@ -61,10 +60,7 @@ function buildBasicFunds(prices, existingFunds) {
       name: p.name || cached?.name || '未知',
       marketPrice: p.price,
       changePct: p.changePct || 0,
-      high: p.high,
-      low: p.low,
-      open: p.open,
-      prevClose: p.prevClose,
+      high: p.high, low: p.low, open: p.open, prevClose: p.prevClose,
       estimatedNav: navValue,
       navDate: cached?.navDate || '',
       estimatedTime: cached?.estimatedTime || '',
@@ -72,15 +68,14 @@ function buildBasicFunds(prices, existingFunds) {
       premium,
       premiumLevel: getPremiumLevel(premium),
       hasNavError: false,
-      navStale: !!cached // 标记净值来自缓存
+      navStale: !!cached,
+      marketSource,
+      navSource: cached?.navSource || 'cache'
     }
   })
 }
 
-/**
- * 合并行情和净值数据
- */
-function mergeData(prices, navs) {
+function mergeData(prices, navs, marketSource, navSource) {
   const navMap = new Map()
   for (const n of navs) {
     if (n.code && !n.error) navMap.set(n.code, n)
@@ -97,17 +92,16 @@ function mergeData(prices, navs) {
       name: p.name || nav?.name || '未知',
       marketPrice: p.price,
       changePct: p.changePct || 0,
-      high: p.high,
-      low: p.low,
-      open: p.open,
-      prevClose: p.prevClose,
+      high: p.high, low: p.low, open: p.open, prevClose: p.prevClose,
       estimatedNav: navValue,
       navDate: nav?.navDate || '',
       estimatedTime: nav?.estimatedTime || '',
       estimatedPct: nav?.estimatedPct || 0,
       premium,
       premiumLevel: getPremiumLevel(premium),
-      hasNavError: !hasNav
+      hasNavError: !hasNav,
+      marketSource,
+      navSource
     }
   })
 }
@@ -116,25 +110,37 @@ export function useFundData() {
   const funds = shallowRef([])
   const loading = ref(false)
   const error = ref(null)
-  const navError = ref(null)  // 净值单独的错误提示
+  const navError = ref(null)
   const lastUpdate = ref(null)
   const updateCount = ref(0)
+  const activeMarketSource = ref('eastmoney')
+  const activeNavSource = ref('tiantian')
 
-  async function fetchData(codes, force = false) {
+  async function fetchData(codes, force = false, options = {}) {
     if (!codes || codes.length === 0) {
       funds.value = []
       return
     }
 
-    // 30秒内复用缓存
+    const {
+      marketSource = 'eastmoney',
+      navSource = 'tiantian',
+      customMarketUrl = '',
+      customNavUrl = '',
+      cacheDuration = 30_000
+    } = options
+
+    currentCacheDuration = cacheDuration
+    activeMarketSource.value = marketSource
+    activeNavSource.value = navSource
+
     const now = Date.now()
-    if (!force && cachedFunds && now - lastFetchTime < CACHE_DURATION) {
+    if (!force && cachedFunds && now - lastFetchTime < cacheDuration) {
       funds.value = cachedFunds
       lastUpdate.value = new Date(lastFetchTime)
       return
     }
 
-    // 去重请求
     if (fetchPromise) {
       await fetchPromise
       funds.value = cachedFunds
@@ -147,42 +153,39 @@ export function useFundData() {
     navError.value = null
 
     fetchPromise = (async () => {
-      // === 第一步：获取行情（必须成功）===
-      let prices = []
+      // === 步骤1：获取行情 ===
+      let prices = [], marketSrc = marketSource
       try {
-        prices = await fetchMarketPrices(codes)
+        const result = await fetchMarketPrices(codes, marketSource, customMarketUrl)
+        prices = result.data
+        marketSrc = result.source || marketSource
       } catch (err) {
         error.value = err.message
         loading.value = false
         fetchPromise = null
-        // 如果有缓存，使用缓存
-        if (cachedFunds) {
-          funds.value = cachedFunds
-          return cachedFunds
-        }
+        if (cachedFunds) { funds.value = cachedFunds; return cachedFunds }
         funds.value = []
         return []
       }
 
-      // === 第二步：获取净值（允许失败）===
-      let navs = []
+      // === 步骤2：获取净值 ===
+      let navs = [], navSrc = navSource
       try {
-        navs = await fetchEstimatedNavs(codes)
+        const result = await fetchEstimatedNavs(codes, navSource, customNavUrl)
+        navs = result.data
+        navSrc = result.source || navSource
       } catch (err) {
-        navError.value = '净值数据暂不可用（显示上一交易日净值）'
+        navError.value = '净值数据暂不可用'
         console.warn('[useFundData] 净值API失败:', err.message)
       }
 
-      // === 合并数据 ===
+      // === 合并 ===
       let merged
       if (navs.length > 0) {
-        merged = mergeData(prices, navs)
+        merged = mergeData(prices, navs, marketSrc, navSrc)
       } else {
-        // 净值API完全失败，用缓存中的净值兜底
-        merged = buildBasicFunds(prices, cachedFunds)
-        if (!navError.value) {
-          navError.value = '净值数据暂不可用'
-        }
+        merged = buildBasicFunds(prices, cachedFunds, marketSrc)
+        if (!navError.value) navError.value = '净值数据暂不可用'
       }
 
       cachedFunds = merged
@@ -199,12 +202,7 @@ export function useFundData() {
   }
 
   return {
-    funds,
-    loading,
-    error,
-    navError,
-    lastUpdate,
-    updateCount,
-    fetchData
+    funds, loading, error, navError, lastUpdate, updateCount,
+    activeMarketSource, activeNavSource, fetchData
   }
 }

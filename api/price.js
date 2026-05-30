@@ -77,6 +77,7 @@ export default async function handler(req, res) {
     const { searchParams } = new URL(req.url, `http://${req.headers.host}`)
     const codeParam = searchParams.get('code')
     const codesParam = searchParams.get('codes')
+    const sourceParam = searchParams.get('source') || 'tiantian'
 
     const codes = codesParam
       ? codesParam.split(',').filter(Boolean).slice(0, 15)  // 最多15个（Vercel 10s限制）
@@ -123,6 +124,7 @@ export default async function handler(req, res) {
       total: codes.length,
       successCount,
       data: results,
+      source: sourceParam,
       time: new Date().toISOString()
     })
   } catch (err) {

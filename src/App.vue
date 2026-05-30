@@ -15,7 +15,7 @@
     />
 
     <!-- 主内容区 -->
-    <main class="flex-1 pt-16 sm:pt-14 pb-20 sm:pb-6 flex flex-col max-w-[1920px] mx-auto w-full">
+    <main class="flex-1 pt-16 sm:pt-14 pb-24 sm:pb-6 flex flex-col max-w-[1920px] mx-auto w-full">
       <!-- 错误提示 -->
       <div
         v-if="dataError"
@@ -26,11 +26,9 @@
           <span>{{ dataError }}</span>
         </div>
         <button
-          @click="refreshNow"
+          @click="doRefreshWithSettings"
           class="px-4 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 transition-colors font-medium"
-        >
-          重试
-        </button>
+        >重试</button>
       </div>
 
       <!-- 净值数据异常提示 -->
@@ -49,12 +47,7 @@
       >
         <span class="text-base">{{ marketStatus.icon }}</span>
         <span>{{ marketStatus.label }} — 显示最近一次数据</span>
-        <button
-          @click="refreshNow"
-          class="ml-auto px-3 py-1 rounded bg-white/5 text-slate-300 text-xs hover:bg-white/10 transition-colors"
-        >
-          手动刷新
-        </button>
+        <button @click="doRefreshWithSettings" class="ml-auto px-3 py-1 rounded bg-white/5 text-slate-300 text-xs hover:bg-white/10 transition-colors">手动刷新</button>
       </div>
 
       <!-- 基金数据表格 -->
@@ -71,81 +64,80 @@
     </main>
 
     <!-- 底部操作栏 -->
-    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-bg-card/90 backdrop-blur-md border-t border-white/5 px-4 py-3"
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-bg-card/90 backdrop-blur-md border-t border-white/5 px-2 py-3"
          :style="{ paddingBottom: 'calc(var(--safe-area-bottom) + 0.75rem)' }">
       <div class="flex items-center justify-around max-w-lg mx-auto">
         <!-- 关注列表 -->
-        <button
-          @click="showWatchlist = true"
-          class="flex flex-col items-center gap-1 text-muted hover:text-yellow-400 transition-colors px-6 py-1"
-        >
+        <button @click="showWatchlist = true" class="flex flex-col items-center gap-1 text-muted hover:text-yellow-400 transition-colors px-4 py-1">
           <span class="text-2xl">⭐</span>
-          <span class="text-xs font-medium">关注 ({{ watchlist.length }})</span>
+          <span class="text-xs font-medium">关注({{ watchlist.length }})</span>
         </button>
 
         <!-- 数据概览 -->
-        <div class="flex flex-col items-center gap-1 text-muted px-6 py-1">
+        <div class="flex flex-col items-center gap-1 text-muted px-4 py-1">
           <span class="text-2xl">📊</span>
           <span class="text-xs">{{ updateCount > 0 ? `刷新${updateCount}次` : '等待数据' }}</span>
         </div>
 
         <!-- 手动刷新 -->
-        <button
-          @click="refreshNow"
-          :disabled="isRefreshing"
-          class="flex flex-col items-center gap-1 text-accent hover:text-blue-300 transition-colors px-6 py-1 disabled:opacity-50"
-        >
+        <button @click="doRefreshWithSettings" :disabled="isRefreshing" class="flex flex-col items-center gap-1 text-accent hover:text-blue-300 transition-colors px-4 py-1 disabled:opacity-50">
           <span class="text-2xl" :class="{ 'animate-spin': isRefreshing }">↻</span>
           <span class="text-xs font-medium">{{ isRefreshing ? '刷新中' : '刷新' }}</span>
+        </button>
+
+        <!-- 设置 -->
+        <button @click="showSettings = true" class="flex flex-col items-center gap-1 text-muted hover:text-white transition-colors px-4 py-1">
+          <span class="text-2xl">⚙️</span>
+          <span class="text-xs font-medium">设置</span>
         </button>
       </div>
     </nav>
 
-    <!-- 套利计算弹窗 -->
-    <ArbitrageCalc
-      :fund="selectedFund"
-      @close="selectedFund = null"
-    />
-
-    <!-- 关注列表面板 -->
-    <Watchlist
-      :show="showWatchlist"
-      :watchlist="watchlist"
-      :removeFund="removeFund"
-      :exportConfig="exportConfig"
-      :importConfig="(cb) => importConfig(cb)"
-      :resetToDefault="resetToDefault"
-      @close="showWatchlist = false"
-    />
+    <!-- 弹窗们 -->
+    <ArbitrageCalc :fund="selectedFund" @close="selectedFund = null" />
+    <Watchlist :show="showWatchlist" :watchlist="watchlist" :removeFund="removeFund" :exportConfig="exportConfig" :importConfig="(cb) => importConfig(cb)" :resetToDefault="resetToDefault" @close="showWatchlist = false" />
+    <SettingsPanel :show="showSettings" @close="onSettingsClosed" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import StatusBar from './components/StatusBar.vue'
 import FundTable from './components/FundTable.vue'
 import ArbitrageCalc from './components/ArbitrageCalc.vue'
 import Watchlist from './components/Watchlist.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import { useFundData } from './composables/useFundData.js'
 import { useWatchlist } from './composables/useWatchlist.js'
 import { useAutoRefresh } from './composables/useAutoRefresh.js'
+import { useSettings } from './composables/useSettings.js'
 
 const { funds, loading: dataLoading, error: dataError, navError, lastUpdate, updateCount, fetchData } = useFundData()
+const { watchlist, removeFund, isWatched, toggleFund, resetToDefault, exportConfig, importConfig, getWatchCodes } = useWatchlist()
+const { settings, getApiParams } = useSettings()
 
-const {
-  watchlist, removeFund, isWatched, toggleFund,
-  resetToDefault, exportConfig, importConfig, getWatchCodes
-} = useWatchlist()
-
-function onRefresh() {
+function doRefreshWithSettings() {
   const codes = getWatchCodes()
-  return fetchData(codes, true)
+  const apiParams = getApiParams()
+  return fetchData(codes, true, {
+    marketSource: apiParams.marketSource,
+    navSource: apiParams.navSource,
+    customMarketUrl: apiParams.customMarketUrl,
+    customNavUrl: apiParams.customNavUrl,
+    cacheDuration: settings.refreshInterval
+  })
 }
 
-const {
-  isEnabled, isRefreshing, countdown, marketStatus,
-  tradingNow, refreshNow, toggleAutoRefresh
-} = useAutoRefresh(onRefresh, { interval: 30_000 })
+function onRefresh() { return doRefreshWithSettings() }
+
+const { isEnabled, isRefreshing, countdown, marketStatus, tradingNow, refreshNow, toggleAutoRefresh } = useAutoRefresh(onRefresh, { interval: settings.refreshInterval })
+
+// 设置变化时重新加载
+const showSettings = ref(false)
+function onSettingsClosed() {
+  showSettings.value = false
+  doRefreshWithSettings()
+}
 
 const selectedFund = ref(null)
 const showWatchlist = ref(false)
@@ -153,7 +145,7 @@ const showWatchlist = ref(false)
 function openArbitrage(fund) { selectedFund.value = fund }
 function handleToggleWatch(fund) {
   const added = toggleFund(fund)
-  if (added) refreshNow()
+  if (added) doRefreshWithSettings()
 }
 
 function setVH() {
@@ -165,7 +157,7 @@ function handleAddWatch(e) {
   const { code, name } = e.detail
   if (!isWatched(code)) {
     watchlist.value = [...watchlist.value, { code, name }]
-    refreshNow()
+    doRefreshWithSettings()
   }
 }
 
@@ -175,7 +167,7 @@ onMounted(() => {
   window.addEventListener('orientationchange', () => setTimeout(setVH, 100))
   window.addEventListener('lof:add-watch', handleAddWatch)
   const codes = getWatchCodes()
-  if (codes.length > 0) fetchData(codes, true)
+  if (codes.length > 0) doRefreshWithSettings()
 })
 
 onUnmounted(() => {

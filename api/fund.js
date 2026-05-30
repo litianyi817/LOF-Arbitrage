@@ -158,6 +158,7 @@ export default async function handler(req, res) {
     const urlStr = req.url.startsWith('http') ? req.url : `http://${req.headers.host}${req.url}`
     const { searchParams } = new URL(urlStr)
     const codesParam = searchParams.get('codes')
+    const sourceParam = searchParams.get('source') || 'eastmoney'
 
     let allFunds = []
     let usedFallback = false
@@ -220,6 +221,7 @@ export default async function handler(req, res) {
       success: true,
       total: unique.length,
       data: unique,
+      source: sourceParam,
       time: new Date().toISOString()
     })
   } catch (err) {

@@ -29,6 +29,19 @@
       </div>
     </div>
 
+    <!-- 数据来源图例（简版） -->
+    <div class="hidden sm:flex items-center gap-3 px-4 py-1.5 text-2xs text-muted border-b border-white/5 bg-bg/30">
+      <span class="text-muted">来源:</span>
+      <span
+        v-for="s in activeSources"
+        :key="s.id"
+        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+        :style="{ backgroundColor: s.color + '18', color: s.color }"
+      >
+        {{ s.icon }} {{ s.label }}
+      </span>
+    </div>
+
     <!-- 表头 - 桌面端 -->
     <div class="hidden xl:grid grid-cols-12 gap-2 px-4 py-2.5 text-xs text-muted uppercase tracking-wider border-b border-white/5 bg-bg/70 sticky top-0 z-10 backdrop-blur-sm">
       <div class="col-span-2 cursor-pointer select-none hover:text-white transition-colors" @click="toggleSort('code')">
@@ -89,21 +102,37 @@
           <span v-if="fund.navStale" class="text-muted text-2xs ml-1">缓存</span>
         </div>
 
-        <!-- 场内价 -->
+        <!-- 场内价 + 来源标签 -->
         <div class="col-span-2 text-right font-mono-num text-sm xl:text-base">
           <span class="font-semibold">{{ formatPrice(fund.marketPrice) }}</span>
           <div class="text-xs" :class="fund.changePct >= 0 ? 'text-up-light' : 'text-down-light'">
             {{ fund.changePct >= 0 ? '+' : '' }}{{ fund.changePct.toFixed(2) }}%
           </div>
+          <div
+            v-if="fund.marketSource"
+            class="inline-block mt-0.5 text-2xs px-1.5 py-0.5 rounded-full font-medium"
+            :style="{ backgroundColor: getSourceLabel(fund.marketSource).color + '20', color: getSourceLabel(fund.marketSource).color }"
+            :title="'行情来源: ' + getSourceLabel(fund.marketSource).name"
+          >
+            {{ getSourceLabel(fund.marketSource).icon }} {{ getSourceLabel(fund.marketSource).name }}
+          </div>
         </div>
 
-        <!-- 估算净值 -->
+        <!-- 估算净值 + 来源标签 -->
         <div class="col-span-2 text-right font-mono-num text-sm xl:text-base">
           <span :class="{ 'text-muted': !fund.estimatedNav }">
             {{ fund.estimatedNav ? formatPrice(fund.estimatedNav) : '--' }}
           </span>
           <div v-if="fund.estimatedTime" class="text-xs text-muted">
             {{ fund.estimatedTime }}
+          </div>
+          <div
+            v-if="fund.navSource"
+            class="inline-block mt-0.5 text-2xs px-1.5 py-0.5 rounded-full font-medium"
+            :style="{ backgroundColor: getSourceLabel(fund.navSource).color + '20', color: getSourceLabel(fund.navSource).color }"
+            :title="'净值来源: ' + getSourceLabel(fund.navSource).name"
+          >
+            {{ getSourceLabel(fund.navSource).icon }} {{ getSourceLabel(fund.navSource).name }}
           </div>
         </div>
 
@@ -143,6 +172,41 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { formatPct } from '../utils/calculator.js'
+
+// 数据源 → 显示标签映射
+const SOURCE_LABELS = {
+  eastmoney:     { icon: '📡', name: '东财', color: '#4dabf7' },
+  sina:          { icon: '📰', name: '新浪', color: '#f39c12' },
+  tencent:       { icon: '💬', name: '腾讯', color: '#2ecc71' },
+  tiantian:      { icon: '🏦', name: '天天', color: '#e67e22' },
+  eastmoney_nav: { icon: '📡', name: '东财净值', color: '#4dabf7' },
+  cache:         { icon: '💾', name: '缓存', color: '#8892b0' },
+  unknown:       { icon: '❓', name: '未知', color: '#8892b0' }
+}
+
+function getSourceLabel(sourceId) {
+  return SOURCE_LABELS[sourceId] || SOURCE_LABELS.unknown
+}
+
+// 当前活跃的数据源（用于图例）
+const activeSources = computed(() => {
+  const funds = props.funds || []
+  const seen = new Set()
+  const sources = []
+  for (const f of funds) {
+    if (f.marketSource && !seen.has(f.marketSource)) {
+      seen.add(f.marketSource)
+      const label = getSourceLabel(f.marketSource)
+      sources.push({ id: f.marketSource, icon: label.icon, label: label.name + '(行情)', color: label.color })
+    }
+    if (f.navSource && !seen.has(f.navSource)) {
+      seen.add(f.navSource)
+      const label = getSourceLabel(f.navSource)
+      sources.push({ id: f.navSource, icon: label.icon, label: label.name + '(净值)', color: label.color })
+    }
+  }
+  return sources.slice(0, 4)
+})
 
 const props = defineProps({
   funds: { type: Array, default: () => [] },
