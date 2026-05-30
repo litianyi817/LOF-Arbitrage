@@ -43,7 +43,7 @@ async function fetchMarketPrices(codes, source, customUrl, avKey) {
 }
 
 /**
- * 获取估算净值
+ * 获取估算净值（Vercel 代理）
  */
 async function fetchEstimatedNavs(codes, source, customUrl) {
   let url = '/api/price'
@@ -56,6 +56,68 @@ async function fetchEstimatedNavs(codes, source, customUrl) {
   const json = await response.json()
   if (!json.success) throw new Error(json.error || '净值数据获取失败')
   return { data: json.data || [], source: json.source || source || 'tiantian' }
+}
+
+/**
+ * 浏览器直连天天基金 JSONP 获取净值（Vercel 不可用时的备用方案）
+ * 天天基金返回格式: jsonpgz({"fundcode":"...","gsz":"...",...})
+ */
+function fetchNavJSONP(code) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error('JSONP超时'))
+    }, 5000)
+
+    function cleanup() {
+      clearTimeout(timer)
+      delete window.jsonpgz
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+
+    // 天天基金 API 固定调用 jsonpgz()
+    window.jsonpgz = (raw) => {
+      cleanup()
+      const gsz = parseFloat(raw.gsz) || 0
+      const dwjz = parseFloat(raw.dwjz) || 0
+      resolve({
+        code: raw.fundcode || code,
+        name: raw.name || '',
+        nav: dwjz,
+        estimatedNav: gsz,
+        estimatedTime: raw.gztime || '',
+        estimatedPct: parseFloat(raw.gszzl) || 0,
+        navDate: raw.jzrq || '',
+        navAcc: parseFloat(raw.ljjz) || 0,
+        displayNav: gsz > 0 ? gsz : dwjz,
+        source: 'tiantian_direct'
+      })
+    }
+
+    script.onerror = () => {
+      cleanup()
+      reject(new Error('JSONP加载失败'))
+    }
+
+    script.src = `https://fundgz.1234567.com.cn/js/${code}.js?_=${Date.now()}`
+    document.head.appendChild(script)
+  })
+}
+
+/**
+ * 浏览器直连批量获取净值
+ */
+async function fetchNavsDirectJSONP(codes) {
+  const results = []
+  for (let i = 0; i < codes.length; i += 3) {
+    const batch = codes.slice(i, i + 3)
+    const settled = await Promise.allSettled(batch.map(fetchNavJSONP))
+    for (const r of settled) {
+      results.push(r.status === 'fulfilled' ? r.value : { code: 'unknown', error: r.reason?.message || '失败' })
+    }
+  }
+  return { data: results, source: 'tiantian_direct' }
 }
 
 function buildBasicFunds(prices, existingFunds, marketSource) {
@@ -198,8 +260,22 @@ export function useFundData() {
         navs = result.data
         navSrc = result.source || navSource
       } catch (err) {
-        navError.value = '净值数据暂不可用'
-        console.warn('[useFundData] 净值API失败:', err.message)
+        console.warn('[useFundData] Vercel净值API失败:', err.message)
+        // 备用：浏览器直连天天基金 JSONP
+        const jsonpCodes = codes && codes.length > 0 ? codes : prices.map(p => p.code).filter(Boolean)
+        if (jsonpCodes.length > 0) {
+          try {
+            console.log('[useFundData] 尝试浏览器直连 JSONP...', jsonpCodes.length, '个')
+            const direct = await fetchNavsDirectJSONP(jsonpCodes.slice(0, 8))
+            navs = direct.data
+            navSrc = 'tiantian_direct'
+          } catch (e2) {
+            console.warn('[useFundData] JSONP也失败:', e2.message)
+            navError.value = '净值数据暂不可用'
+          }
+        } else {
+          navError.value = '净值数据暂不可用'
+        }
       }
 
       // === 合并 ===
