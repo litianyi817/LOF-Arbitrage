@@ -119,10 +119,11 @@
         </div>
 
         <!-- 名称 -->
-        <div class="col-span-3 text-sm xl:text-base truncate text-slate-300">
-          {{ fund.name }}
-          <span v-if="fund.hasNavError" class="text-yellow-500 text-xs ml-1.5" title="净值数据暂不可用">⚠</span>
-          <span v-if="fund.navStale" class="text-muted text-2xs ml-1">缓存</span>
+        <div class="col-span-3 text-sm xl:text-base truncate text-slate-300 flex items-center gap-1">
+          <span class="truncate">{{ fund.name }}</span>
+          <span v-if="fund.isSuspended" class="text-xs px-1 py-0.5 rounded bg-gray-600/30 text-gray-400 font-medium shrink-0" title="停牌中">⏸停</span>
+          <span v-if="fund.isQDII" class="text-xs px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-medium shrink-0" title="QDII基金">🌐QDII</span>
+          <span v-if="fund.hasNavError" class="text-yellow-500 text-xs shrink-0" title="净值数据暂不可用">⚠</span>
         </div>
 
         <!-- 场内价 + 来源标签 -->

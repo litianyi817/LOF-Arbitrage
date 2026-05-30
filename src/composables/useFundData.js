@@ -104,24 +104,27 @@ async function fetchMarketJSONPAll() {
       params.set('pn','1'); params.set('pz','500'); params.set('po','1')
       params.set('np','1'); params.set('fltt','2'); params.set('invt','2')
       params.set('fid','f3'); params.set('fs', fs)
-      params.set('fields','f2,f3,f4,f12,f14,f15,f16,f17,f18,f20,f21,f22')
+      params.set('fields','f2,f3,f4,f5,f12,f14,f15,f16,f17,f18,f20,f21,f22')
 
       const data = await jsonpRequest(`${base}?${params.toString()}`, 12000)
       const items = data?.data?.diff || []
       console.log('[JSONP]', fs, ':', items.length, '条')
-      if (items[0]) console.log('[JSONP] 首条字段:', Object.keys(items[0]).join(','), '| f21=', items[0].f21, '| f20=', items[0].f20)
 
       for (const it of items) {
         const iopv = parseFloat(it.f21) || parseFloat(it.f22) || parseFloat(it.f20) || 0
+        const volume = parseFloat(it.f5) || 0
+        const name = it.f14 || ''
         allFunds.push({
-          code: it.f12||'', name: it.f14||'',
+          code: it.f12||'', name,
           price: parseFloat(it.f2)||0, changePct: parseFloat(it.f3)||0,
-          change: parseFloat(it.f4)||0, high: parseFloat(it.f15)||0,
-          low: parseFloat(it.f16)||0, open: parseFloat(it.f17)||0,
-          prevClose: parseFloat(it.f18)||0,
+          change: parseFloat(it.f4)||0, volume,
+          high: parseFloat(it.f15)||0, low: parseFloat(it.f16)||0,
+          open: parseFloat(it.f17)||0, prevClose: parseFloat(it.f18)||0,
           estimatedNav: iopv,
           estimatedTime: iopv > 0 ? '实时' : '',
-          navSource: iopv > 0 ? 'eastmoney_iopv' : null
+          navSource: iopv > 0 ? 'eastmoney_iopv' : null,
+          isSuspended: volume === 0 && parseFloat(it.f2) > 0,
+          isQDII: /QDII|纳斯达克|标普|恒生|港股|全球|海外|美元|港股通|中概|互联|德国|法国|日本|印度|越南|韩国|台湾/i.test(name)
         })
       }
     } catch (e) {
@@ -247,8 +250,11 @@ function buildBasicFunds(prices, existingFunds, marketSource) {
       name: p.name || cached?.name || '未知',
       marketPrice: p.price,
       changePct: p.changePct || 0,
+      volume: p.volume || 0,
       high: p.high, low: p.low, open: p.open, prevClose: p.prevClose,
       estimatedNav: navValue,
+      isSuspended: p.isSuspended || false,
+      isQDII: p.isQDII || false,
       navDate: cached?.navDate || '',
       estimatedTime: cached?.estimatedTime || '',
       estimatedPct: cached?.estimatedPct || 0,
@@ -284,8 +290,11 @@ function mergeData(prices, navs, marketSource, navSource) {
       name: p.name || nav?.name || '未知',
       marketPrice: p.price,
       changePct: p.changePct || 0,
+      volume: p.volume || 0,
       high: p.high, low: p.low, open: p.open, prevClose: p.prevClose,
       estimatedNav: navValue,
+      isSuspended: p.isSuspended || false,
+      isQDII: p.isQDII || false,
       navDate: nav?.navDate || '',
       estimatedTime: fromIOPV > 0 ? (p.estimatedTime || '实时') : (nav?.estimatedTime || ''),
       estimatedPct: nav?.estimatedPct || 0,
