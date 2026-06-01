@@ -51,6 +51,22 @@
       </div>
     </div>
 
+    <!-- 筛选栏 -->
+    <div class="flex items-center gap-2 px-4 py-2 border-b border-white/5 bg-bg/30 overflow-x-auto">
+      <span class="text-xs text-muted shrink-0">筛选:</span>
+      <button @click="filterToggle('all')" class="text-xs px-2.5 py-1 rounded-full transition-colors shrink-0"
+              :class="activeFilter === 'all' ? 'bg-accent/20 text-accent ring-1 ring-accent/30' : 'bg-white/5 text-muted hover:bg-white/10'">全部</button>
+      <button @click="filterToggle('qdii')" class="text-xs px-2.5 py-1 rounded-full transition-colors shrink-0"
+              :class="activeFilter === 'qdii' ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/30' : 'bg-white/5 text-muted hover:bg-white/10'">🌐 仅QDII</button>
+      <button @click="filterToggle('active')" class="text-xs px-2.5 py-1 rounded-full transition-colors shrink-0"
+              :class="activeFilter === 'active' ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/30' : 'bg-white/5 text-muted hover:bg-white/10'">✅ 仅非停牌</button>
+      <button @click="filterToggle('suspended')" class="text-xs px-2.5 py-1 rounded-full transition-colors shrink-0"
+              :class="activeFilter === 'suspended' ? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30' : 'bg-white/5 text-muted hover:bg-white/10'">⏸ 仅停牌</button>
+      <span class="text-2xs text-muted ml-auto shrink-0 hidden sm:inline">
+        QDII:{{ qdiiCount }} 停牌:{{ suspendedCount }}
+      </span>
+    </div>
+
     <!-- 数据来源图例（简版） -->
     <div class="hidden sm:flex items-center gap-3 px-4 py-1.5 text-2xs text-muted border-b border-white/5 bg-bg/30">
       <span class="text-muted">来源:</span>
@@ -119,10 +135,10 @@
         </div>
 
         <!-- 名称 -->
-        <div class="col-span-3 text-sm xl:text-base truncate text-slate-300 flex items-center gap-1">
+        <div class="col-span-3 text-sm xl:text-base text-slate-300 flex items-center gap-1 min-w-0">
           <span class="truncate">{{ fund.name }}</span>
-          <span v-if="fund.isSuspended" class="text-xs px-1 py-0.5 rounded bg-gray-600/30 text-gray-400 font-medium shrink-0" title="停牌中">⏸停</span>
-          <span v-if="fund.isQDII" class="text-xs px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-medium shrink-0" title="QDII基金">🌐QDII</span>
+          <span v-if="fund.isSuspended" class="text-2xs px-1 py-0.5 rounded bg-gray-500/25 text-gray-400 font-bold shrink-0" title="停牌中">停</span>
+          <span v-if="fund.isQDII" class="text-2xs px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400 font-bold shrink-0" title="QDII基金">QDII</span>
           <span v-if="fund.hasNavError" class="text-yellow-500 text-xs shrink-0" title="净值数据暂不可用">⚠</span>
         </div>
 
@@ -245,6 +261,14 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'toggle-watch', 'search-code'])
 
+// 筛选
+const activeFilter = ref('all')
+function filterToggle(f) { activeFilter.value = activeFilter.value === f ? 'all' : f }
+
+// QDII/停牌计数
+const qdiiCount = computed(() => props.funds.filter(f => f.isQDII).length)
+const suspendedCount = computed(() => props.funds.filter(f => f.isSuspended).length)
+
 // 搜索
 const searchQuery = ref('')
 
@@ -296,6 +320,11 @@ const tableMaxHeight = computed(() => {
 
 const filteredFunds = computed(() => {
   let arr = props.funds.filter(f => f.marketPrice > 0)
+
+  // 筛选按钮
+  if (activeFilter.value === 'qdii') arr = arr.filter(f => f.isQDII)
+  if (activeFilter.value === 'active') arr = arr.filter(f => !f.isSuspended)
+  if (activeFilter.value === 'suspended') arr = arr.filter(f => f.isSuspended)
 
   // 代码/名称搜索过滤
   const q = searchQuery.value.trim()
